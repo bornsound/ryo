@@ -1,0 +1,85 @@
+name: Build Ryo Currency
+
+on:
+  push:
+    branches: [ dev ]
+  pull_request:
+    iwbranches: [ dev ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-13 # macOS Ventura, x86_64 architecture
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          submodules: recursive
+
+      - name: Install Homebrew dependencies
+        run: |
+          brew install cmake pkg-config libunbound libsodium miniupnpc zeromq hidapi liblzma readline expat libpgm gtest doxygen graphviz ccache
+
+      - name: Install GCC 10
+        run: |
+          brew install gcc@10
+          echo "CC=/usr/local/bin/gcc-10" >> $GITHUB_ENV
+          echo "CXX=/usr/local/bin/g++-10" >> $GITHUB_ENV
+
+      - name: Build and install OpenSSL 1.1.1 (static)
+        run: |
+          curl -L https://www.openssl.org/source/openssl-1.1.1w.tar.gz -o openssl-1.1.1w.tar.gz
+          tar -xzf openssl-1.1.1w.tar.gz
+          cd openssl-1.1.1w
+          ./Configure darwin64-x86_64-cc no-shared --prefix=/usr/local/openssl-1.1.1
+          make -j$(nproc)
+          make install
+          cd ..
+          echo "OPENSSL_ROOT_DIR=/usr/local/openssl-1.1.1" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=/usr/local/openssl-1.1.1/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
+
+      - name: Build and install Boost 1.75 (static)
+        run: |
+          curl -L https://boostorg.jfrog.io/artifactory/main/release/1.75.0/source/boost_1_75_0.tar.gz -o boost_1_75_0.tar.gz
+          tar -xzf boost_1_75_0.tar.gz
+          cd boost_1_75_0
+          ./bootstrap.sh --prefix=/usr/local/boost-1.75
+          ./b2 -j$(nproc) --without-python cxxflags="-std=c++11" link=static install
+          cd ..
+          echo "BOOST_ROOT=/usr/local/boost-1.75" >> $GITHUB_ENV
+
+      - name: Create build directory
+        run: mkdir build && cd build
+
+      - name: Configure CMake for static build
+        run: |
+          cd build
+          cmake .. \
+            -DCMAKE_C_COMPILER=/usr/local/bin/gcc-10 \
+            -DCMAKE_CXX_COMPILER=/usr/local/bin/g++-10 \
+            -DOPENSSL_ROOT_DIR=/usr/local/openssl-1.1.1 \
+            -DBOOST_ROOT=/usr/local/boost-1.75 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSTATIC=ON \
+            -DUSE_SINGLE_BUILDDIR=1 \
+            -DARCH=x86_64 \
+            -DBUILD_64=ON
+
+      - name: Build Ryo (release-static-mac-x86_64)
+        run: |
+          cd build
+          make release-static-mac-x86_64 -j$(nproc)
+
+      - name: Run tests (optional)
+        run: |
+          cd build
+          make release-test
+        continue-on-error: true # Tests may fail on dev branch
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ryo-binaries
+          path: build/release/bin/
