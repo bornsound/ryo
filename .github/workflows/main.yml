@@ -24,7 +24,7 @@ jobs:
           tar -xzf cmake-3.4.3.tar.gz
           cd cmake-3.4.3
           ./configure --prefix=$HOME/cmake-3.4.3
-          make -j$(nproc)
+          make -j$(sysctl -n hw.ncpu)
           make install
           echo "$HOME/cmake-3.4.3/bin" >> $GITHUB_PATH
           cd ..
@@ -33,7 +33,7 @@ jobs:
 
       - name: Install Homebrew dependencies
         run: |
-          brew install --formula cmake pkg-config unbound libsodium miniupnpc zmq hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
+          brew install --formula pkg-config unbound libsodium miniupnpc zmq hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
           # Verify libunbound is installed
           ls -l /usr/local/lib/libunbound*
 
@@ -50,7 +50,7 @@ jobs:
           cd openssl-1.1.1w
           ./Configure darwin64-x86_64-cc no-shared --prefix=$HOME/openssl-1.1.1 CC=/usr/local/bin/gcc-10
           make depend
-          make -j$(nproc)
+          make -j$(sysctl -n hw.ncpu)
           make install
           cd ..
           # Verify static libraries
@@ -64,7 +64,7 @@ jobs:
           tar -xzf boost_1_75_0.tar.gz
           cd boost_1_75_0
           ./bootstrap.sh --prefix=$HOME/boost-1.75
-          ./b2 -j$(nproc) --without-python cxxflags="-std=c++11" link=static install
+          ./b2 -j$(sysctl -n hw.ncpu) --without-python cxxflags="-std=c++11" link=static install
           cd ..
           echo "BOOST_ROOT=$HOME/boost-1.75" >> $GITHUB_ENV
 
@@ -90,7 +90,7 @@ jobs:
       - name: Build Ryo (release-static-mac-x86_64)
         run: |
           cd build
-          make release-static-mac-x86_64 -j$(nproc)
+          make release-static-mac-x86_64 -j$(sysctl -n hw.ncpu)
 
       - name: Run tests (optional)
         run: |
