@@ -17,6 +17,7 @@ jobs:
         with:
           ref: dev
           submodules: recursive
+
       - name: Install Homebrew dependencies
         run: |
           brew install --formula cmake pkg-config unbound libsodium miniupnpc zmq hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
@@ -34,10 +35,13 @@ jobs:
           curl -L https://www.openssl.org/source/openssl-1.1.1w.tar.gz -o openssl-1.1.1w.tar.gz
           tar -xzf openssl-1.1.1w.tar.gz
           cd openssl-1.1.1w
-          ./Configure darwin64-x86_64-cc no-shared --prefix=/usr/local/openssl-1.1.1
+          ./Configure darwin64-x86_64-cc no-shared --prefix=/usr/local/openssl-1.1.1 CC=/usr/local/bin/gcc-10
+          make depend
           make -j$(nproc)
           make install
           cd ..
+          # Verify static libraries
+          ls -l /usr/local/openssl-1.1.1/lib/lib*.a
           echo "OPENSSL_ROOT_DIR=/usr/local/openssl-1.1.1" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH=/usr/local/openssl-1.1.1/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
 
