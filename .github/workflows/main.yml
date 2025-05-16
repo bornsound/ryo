@@ -21,6 +21,8 @@ jobs:
       - name: Install Homebrew dependencies
         run: |
           brew install --formula cmake pkg-config unbound libsodium miniupnpc zeromq hidapi liblzma readline expat libpgm gtest doxygen graphviz ccache
+          # Verify libunbound is installed
+          ls -l /usr/local/lib/libunbound*
 
       - name: Install GCC 10
         run: |
@@ -61,6 +63,8 @@ jobs:
             -DCMAKE_CXX_COMPILER=/usr/local/bin/g++-10 \
             -DOPENSSL_ROOT_DIR=/usr/local/openssl-1.1.1 \
             -DBOOST_ROOT=/usr/local/boost-1.75 \
+            -DUNBOUND_INCLUDE_DIR=/usr/local/include \
+            -DUNBOUND_LIBRARY=/usr/local/lib/libunbound.a \
             -DCMAKE_BUILD_TYPE=Release \
             -DSTATIC=ON \
             -DUSE_SINGLE_BUILDDIR=1 \
@@ -81,5 +85,5 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ryo-thinaries
+          name: ryo-binaries
           path: build/release/bin/
