@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14 # macOS Sonoma, x86_64 architecture
+    runs-on: macos-13 # macOS Ventura, x86_64 architecture
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
@@ -27,16 +27,28 @@ jobs:
           path: |
             ~/openssl-1.1.1
             ~/boost-1.75
+            ~/cmake-3.4.2
           key: ${{ runner.os }}-deps-${{ hashFiles('**/*.yml') }}
           restore-keys: ${{ runner.os }}-deps-
 
-      - name: Install Homebrew dependencies
+      - name: Install CMake 3.4.2
         run: |
-          brew install --formula cmake pkg-config unbound libsodium miniupnpc zmq hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
-          # Verify libunbound is installed
-        
+          curl -L https://github.com/Kitware/CMake/releases/download/v3.4.2/cmake-3.4.2.tar.gz -o cmake-3.4.2.tar.gz
+          tar -xzf cmake-3.4.2.tar.gz
+          cd cmake-3.4.2
+          ./configure --prefix=$HOME/cmake-3.4.2 CC=/usr/local/bin/gcc-10 CXX=/usr/local/bin/g++-10
+          make -j$(sysctl -n hw.ncpu)
+          make install
+          echo "$HOME/cmake-3.4.2/bin" >> $GITHUB_PATH
+          cd ..
           # Verify CMake version
           cmake --version
+
+      - name: Install Homebrew dependencies
+        run: |
+          brew install --formula pkg-config unbound libsodium miniupnpc zmq hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
+          # Verify libunbound is installed
+          ls -l /usr/local/lib/libunbound*
 
       - name: Install GCC 10
         run: |
@@ -68,6 +80,8 @@ jobs:
           ./b2 -j$(sysctl -n hw.ncpu) --without-python cxxflags="-std=c++11" link=static install
           cd ..
           echo "BOOST_ROOT=$HOME/boost-1.75" >> $GITHUB_ENV
+          echo "BOOST_INCLUDEDIR=$HOME/boost-1.75/include" >> $GITHUB_ENV
+          echo "BOOST_LIBRARYDIR=$HOME/boost-1.75/lib" >> $GITHUB_ENV
 
       - name: Create build directory
         run: mkdir build && cd build
@@ -80,14 +94,17 @@ jobs:
             -DCMAKE_CXX_COMPILER=/usr/local/bin/g++-10 \
             -DOPENSSL_ROOT_DIR=$HOME/openssl-1.1.1 \
             -DBOOST_ROOT=$HOME/boost-1.75 \
+            -DBOOST_INCLUDEDIR=$HOME/boost-1.75/include \
+            -DBOOST_LIBRARYDIR=$HOME/boost-1.75/lib \
+            -DBoost_NO_BOOST_CMAKE=TRUE \
             -DUNBOUND_INCLUDE_DIR=/usr/local/include \
             -DUNBOUND_LIBRARY=/usr/local/lib/libunbound.a \
             -DCMAKE_BUILD_TYPE=Release \
             -DSTATIC=ON \
             -DUSE_SINGLE_BUILDDIR=1 \
             -DARCH=x86_64 \
-            -DBUILD_64=ON 
-            
+            -DBUILD_64=ON
+
       - name: Build Ryo (release-static-mac-x86_64)
         run: |
           cd build
