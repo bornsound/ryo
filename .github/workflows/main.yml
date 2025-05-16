@@ -31,6 +31,15 @@ jobs:
           key: ${{ runner.os }}-deps-${{ hashFiles('**/*.yml') }}
           restore-keys: ${{ runner.os }}-deps-
 
+      - name: Install GCC 10
+        run: |
+          brew install gcc@10
+          echo "CC=/usr/local/bin/gcc-10" >> $GITHUB_ENV
+          echo "CXX=/usr/local/bin/g++-10" >> $GITHUB_ENV
+          # Verify gcc-10 is available
+          /usr/local/bin/gcc-10 --version
+          /usr/local/bin/g++-10 --version
+
       - name: Install CMake 3.4.2
         run: |
           curl -L https://github.com/Kitware/CMake/releases/download/v3.4.2/cmake-3.4.2.tar.gz -o cmake-3.4.2.tar.gz
@@ -38,7 +47,7 @@ jobs:
           cd cmake-3.4.2
           export CC=/usr/local/bin/gcc-10
           export CXX=/usr/local/bin/g++-10
-          ./configure --prefix=$HOME/cmake-3.4.2
+          ./bootstrap --prefix=$HOME/cmake-3.4.2 || (cat Bootstrap.cmk/cmake_bootstrap.log && exit 1)
           make -j$(sysctl -n hw.ncpu)
           make install
           echo "$HOME/cmake-3.4.2/bin" >> $GITHUB_PATH
@@ -51,12 +60,6 @@ jobs:
           brew install --formula pkg-config unbound libsodium miniupnpc zmq hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
           # Verify libunbound is installed
           ls -l /usr/local/lib/libunbound*
-
-      - name: Install GCC 10
-        run: |
-          brew install gcc@10
-          echo "CC=/usr/local/bin/gcc-10" >> $GITHUB_ENV
-          echo "CXX=/usr/local/bin/g++-10" >> $GITHUB_ENV
 
       - name: Build and install OpenSSL 1.1.1 (static)
         run: |
