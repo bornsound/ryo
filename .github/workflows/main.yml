@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-13 # macOS Ventura, x86_64 architecture
+    runs-on: macos-12 # macOS Monterey, x86_64 architecture (older than macos-13)
 
     steps:
       - name: Checkout repository
@@ -23,6 +23,8 @@ jobs:
           brew install --formula cmake pkg-config unbound libsodium miniupnpc zmq hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
           # Verify libunbound is installed
           ls -l /usr/local/lib/libunbound* || ls -l /opt/homebrew/lib/libunbound*
+          # Print CMake version
+          cmake --version
 
       - name: Install GCC 10
         run: |
@@ -42,7 +44,7 @@ jobs:
           cd ..
           # Verify static libraries
           ls -l $HOME/openssl-1.1.1/lib/lib*.a
-          echo "OPENSSL_ROOT_DIR=$HOME/openssl-1.1.1" >> $GITHUB_ENV
+          echo "OPENSSL_ROOT_DIR =$HOME/openssl-1.1.1" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH=$HOME/openssl-1.1.1/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
 
       - name: Build and install Boost 1.75 (static)
@@ -75,7 +77,8 @@ jobs:
             -DSTATIC=ON \
             -DUSE_SINGLE_BUILDDIR=1 \
             -DARCH=x86_64 \
-            -DBUILD_64=ON
+            -DBUILD_64=ON \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
 
       - name: Build Ryo (release-static-mac-x86_64)
         run: |
