@@ -35,25 +35,25 @@ jobs:
           curl -L https://www.openssl.org/source/openssl-1.1.1w.tar.gz -o openssl-1.1.1w.tar.gz
           tar -xzf openssl-1.1.1w.tar.gz
           cd openssl-1.1.1w
-          ./Configure darwin64-x86_64-cc no-shared --prefix=/usr/local/openssl-1.1.1 CC=/usr/local/bin/gcc-10
+          ./Configure darwin64-x86_64-cc no-shared --prefix=$HOME/openssl-1.1.1 CC=/usr/local/bin/gcc-10
           make depend
           make -j$(nproc)
           make install
           cd ..
           # Verify static libraries
-          ls -l /usr/local/openssl-1.1.1/lib/lib*.a
-          echo "OPENSSL_ROOT_DIR=/usr/local/openssl-1.1.1" >> $GITHUB_ENV
-          echo "PKG_CONFIG_PATH=/usr/local/openssl-1.1.1/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
+          ls -l $HOME/openssl-1.1.1/lib/lib*.a
+          echo "OPENSSL_ROOT_DIR=$HOME/openssl-1.1.1" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=$HOME/openssl-1.1.1/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
 
       - name: Build and install Boost 1.75 (static)
         run: |
           curl -L https://boostorg.jfrog.io/artifactory/main/release/1.75.0/source/boost_1_75_0.tar.gz -o boost_1_75_0.tar.gz
           tar -xzf boost_1_75_0.tar.gz
           cd boost_1_75_0
-          ./bootstrap.sh --prefix=/usr/local/boost-1.75
+          ./bootstrap.sh --prefix=$HOME/boost-1.75
           ./b2 -j$(nproc) --without-python cxxflags="-std=c++11" link=static install
           cd ..
-          echo "BOOST_ROOT=/usr/local/boost-1.75" >> $GITHUB_ENV
+          echo "BOOST_ROOT=$HOME/boost-1.75" >> $GITHUB_ENV
 
       - name: Create build directory
         run: mkdir build && cd build
@@ -64,8 +64,8 @@ jobs:
           cmake .. \
             -DCMAKE_C_COMPILER=/usr/local/bin/gcc-10 \
             -DCMAKE_CXX_COMPILER=/usr/local/bin/g++-10 \
-            -DOPENSSL_ROOT_DIR=/usr/local/openssl-1.1.1 \
-            -DBOOST_ROOT=/usr/local/boost-1.75 \
+            -DOPENSSL_ROOT_DIR=$HOME/openssl-1.1.1 \
+            -DBOOST_ROOT=$HOME/boost-1.75 \
             -DUNBOUND_INCLUDE_DIR=/usr/local/include \
             -DUNBOUND_LIBRARY=/usr/local/lib/libunbound.a \
             -DCMAKE_BUILD_TYPE=Release \
