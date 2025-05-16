@@ -36,7 +36,9 @@ jobs:
           curl -L https://github.com/Kitware/CMake/releases/download/v3.4.2/cmake-3.4.2.tar.gz -o cmake-3.4.2.tar.gz
           tar -xzf cmake-3.4.2.tar.gz
           cd cmake-3.4.2
-          ./configure --prefix=$HOME/cmake-3.4.2 CC=/usr/local/bin/gcc-10 CXX=/usr/local/bin/g++-10
+          export CC=/usr/local/bin/gcc-10
+          export CXX=/usr/local/bin/g++-10
+          ./configure --prefix=$HOME/cmake-3.4.2
           make -j$(sysctl -n hw.ncpu)
           make install
           echo "$HOME/cmake-3.4.2/bin" >> $GITHUB_PATH
