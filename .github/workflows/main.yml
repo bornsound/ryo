@@ -4,7 +4,7 @@ on:
   push:
     branches: [ dev ]
   pull_request:
-    iwbranches: [ dev ]
+    branches: [ dev ]
   workflow_dispatch:
 
 jobs:
@@ -20,7 +20,7 @@ jobs:
 
       - name: Install Homebrew dependencies
         run: |
-          brew install cmake pkg-config libunbound libsodium miniupnpc zeromq hidapi liblzma readline expat libpgm gtest doxygen graphviz ccache
+          brew install --formula cmake pkg-config unbound libsodium miniupnpc zeromq hidapi liblzma readline expat libpgm gtest doxygen graphviz ccache
 
       - name: Install GCC 10
         run: |
@@ -81,5 +81,5 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ryo-binaries
+          name: ryo-thinaries
           path: build/release/bin/
