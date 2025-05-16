@@ -21,6 +21,15 @@ jobs:
           ref: dev
           submodules: recursive
 
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/openssl-1.1.1
+            ~/boost-1.75
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/*.yml') }}
+          restore-keys: ${{ runner.os }}-deps-
+
       - name: Install Homebrew dependencies
         run: |
           brew install --formula cmake pkg-config unbound libsodium miniupnpc zmq hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
@@ -77,7 +86,8 @@ jobs:
             -DSTATIC=ON \
             -DUSE_SINGLE_BUILDDIR=1 \
             -DARCH=x86_64 \
-            -DBUILD_64=ON
+            -DBUILD_64=ON \
+            -DCMAKE_POLICY_DEFAULT_CMP0135=NEW
 
       - name: Build Ryo (release-static-mac-x86_64)
         run: |
