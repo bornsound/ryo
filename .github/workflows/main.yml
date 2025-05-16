@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-13 # macOS Ventura, x86_64 architecture
+    runs-on: macos-14 # macOS Sonoma, x86_64 architecture
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
@@ -86,9 +86,8 @@ jobs:
             -DSTATIC=ON \
             -DUSE_SINGLE_BUILDDIR=1 \
             -DARCH=x86_64 \
-            -DBUILD_64=ON \
-            -DCMAKE_POLICY_DEFAULT_CMP0135=NEW
-
+            -DBUILD_64=ON 
+            
       - name: Build Ryo (release-static-mac-x86_64)
         run: |
           cd build
