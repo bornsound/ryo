@@ -20,7 +20,7 @@ jobs:
 
       - name: Install Homebrew dependencies
         run: |
-          brew install --formula cmake pkg-config unbound libsodium miniupnpc zmq hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
+          brew install --formula cmake@3.4 pkg-config unbound libsodium miniupnpc zmq hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
           # Verify libunbound is installed
           ls -l /usr/local/lib/libunbound*
 
@@ -37,7 +37,7 @@ jobs:
           cd openssl-1.1.1w
           ./Configure darwin64-x86_64-cc no-shared --prefix=$HOME/openssl-1.1.1 CC=/usr/local/bin/gcc-10
           make depend
-          make -j$(sysctl -n hw.ncpu)
+          make -j$(nproc)
           make install
           cd ..
           # Verify static libraries
@@ -51,11 +51,8 @@ jobs:
           tar -xzf boost_1_75_0.tar.gz
           cd boost_1_75_0
           ./bootstrap.sh --prefix=$HOME/boost-1.75
-          ./b2 -j$(sysctl -n hw.ncpu) --without-python cxxflags="-std=c++11" link=static install
+          ./b2 -j$(nproc) --without-python cxxflags="-std=c++11" link=static install
           cd ..
-          # Verify Boost installation
-          ls -l $HOME/boost-1.75/lib/lib*.a
-          ls -l $HOME/boost-1.75/include/boost
           echo "BOOST_ROOT=$HOME/boost-1.75" >> $GITHUB_ENV
 
       - name: Create build directory
@@ -81,7 +78,7 @@ jobs:
       - name: Build Ryo (release-static-mac-x86_64)
         run: |
           cd build
-          make release-static-mac-x86_64 -j$(sysctl -n hw.ncpu)
+          make release-static-mac-x86_64 -j$(nproc)
 
       - name: Run tests (optional)
         run: |
