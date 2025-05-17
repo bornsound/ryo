@@ -46,7 +46,7 @@ jobs:
 
       - name: Build and install ZeroMQ 3.2.5 (static)
         run: |
-          curl -L https://github.com/zeromq/libzmq/releases/download/v3.2.5/zeromq-3.2.5.tar.gz -o zeromq-3.2.5.tar.gz
+          curl -L https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz -o zeromq-4.3.5.tar.gz
           tar -xzf zeromq-3.2.5.tar.gz
           cd zeromq-3.2.5
           # Patch src/clock.hpp to avoid CLOCK_REALTIME redefinition (if present)
