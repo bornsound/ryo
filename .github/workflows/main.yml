@@ -51,11 +51,13 @@ jobs:
           /usr/local/bin/cmake --version
           rm -rf cmake-3.10.2 cmake-3.10.2.tar.gz
 
-      - name: Test compiler
+      - name: Verify compiler C++11 support
         run: |
-          echo "int main() { return 0; }" > test.c
-          /usr/local/bin/gcc-10 test.c -o test
+          echo "#include <memory>" > test.cpp
+          echo "int main() { std::unique_ptr<int> ptr = std::make_unique<int>(42); return 0; }" >> test.cpp
+          /usr/local/bin/g++-10 -std=c++14 test.cpp -o test
           ./test
+          rm test.cpp test
 
       - name: Build and install ZeroMQ 4.3.5 (static)
         run: |
@@ -125,11 +127,13 @@ jobs:
       - name: Configure CMake for static build
         run: |
           cd build
+          rm -rf CMakeCache.txt CMakeFiles # Clear cache to avoid stale config
           /usr/local/bin/cmake .. \
             -DCMAKE_C_COMPILER=/usr/local/bin/gcc-10 \
             -DCMAKE_CXX_COMPILER=/usr/local/bin/g++-10 \
             -DCMAKE_C_STANDARD=11 \
-            -DBOOST_ROOT=$BOOST_ROOT \
+            -DCMAKE_CXX_STANDARD=11 \
+            -DCMAKE_CXX_FLAGS="-std=c++11" \
             -DUNBOUND_INCLUDE_DIR=/usr/local/include \
             -DUNBOUND_LIBRARY=/usr/local/lib/libunbound.a \
             -DZMQ_INCLUDE_DIR=$ZMQ_INCLUDE_DIR \
@@ -137,6 +141,7 @@ jobs:
             -DREADLINE_ROOT=$READLINE_ROOT \
             -DReadline_INCLUDE_DIR=/usr/local/opt/readline/include \
             -DReadline_LIBRARY=/usr/local/opt/readline/lib/libreadline.a \
+            -DBOOST_ROOT=$BOOST_ROOT \
             -DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH \
             -DCMAKE_BUILD_TYPE=Release \
             -DSTATIC=ON \
@@ -163,9 +168,8 @@ jobs:
           name: ryo-binaries
           path: build/release/bin/
 
-      - name: Print config.log if ZeroMQ build fails
+      - name: Print CMake logs on failure
         run: |
-          if [ ! -f /usr/local/include/zmq.h ]; then
-            cat zeromq-4.3.5/config.log || true
-          fi
+          cat CMakeFiles/CMakeOutput.log || true
+          cat CMakeFiles/CMakeError.log || true
         if: failure()
