@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04 # Minimal, stable Ubuntu version, x86_64 architecture
+    runs-on: ubuntu-22.04 # Minimal Ubuntu 22.04, x86_64 architecture
 
     steps:
       - name: Checkout repository
