@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-13 # macOS Ventura, x86_64 architecture
+    runs-on: macos-latest # macOS 15 Sequoia, arm64 architecture
 
     steps:
       - name: Checkout repository
@@ -20,32 +20,57 @@ jobs:
 
       - name: Install Homebrew dependencies
         run: |
-          brew install --formula cmake pkg-config unbound libsodium miniupnpc zeromq zmq hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
-          # Verify libunbound is installed
-          ls -l /usr/local/lib/libunbound*
-          # Verify ZeroMQ installation
-          ls -l /usr/local/include/zmq.hpp
-          ls -l /usr/local/lib/libzmq*
-          ls -l /usr/local/lib/pkgconfig/libzmq.pc
+          brew install --formula cmake pkg-config unbound libsodium miniupnpc zmq czmq hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
+          # Verify libunbound
+          ls -l /opt/homebrew/lib/libunbound*
+          # Verify ZeroMQ (libzmq) and CZMQ
+          brew info zmq
+          brew info czmq
+          ls -l /opt/homebrew/include/zmq.hpp || true
+          ls -l /opt/homebrew/include/czmq.h || true
+          ls -l /opt/homebrew/lib/libzmq* || true
+          ls -l /opt/homebrew/lib/libczmq* || true
+          ls -l /opt/homebrew/lib/pkgconfig/libzmq.pc || true
+          ls -l /opt/homebrew/lib/pkgconfig/libczmq.pc || true
+          ls -l /opt/homebrew/Cellar/zeromq/*/include/zmq.hpp || true
+          ls -l /opt/homebrew/Cellar/czmq/*/include/czmq.h || true
+          pkg-config --modversion zmq || true
+          pkg-config --modversion czmq || true
+          echo "PKG_CONFIG_PATH=/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
+          # Set CPPFLAGS for libunwind-headers
+          echo "CPPFLAGS=-I/opt/homebrew/opt/libunwind-headers/include" >> $GITHUB_ENV
 
+      - name: Reinstall ZeroMQ and CZMQ if needed
+        run: |
+          if [ ! -f /opt/homebrew/include/zmq.hpp ] || [ ! -f /opt/homebrew/include/czmq.h ]; then
+            brew uninstall zmq czmq || true
+            brew install zmq czmq
+            brew link zmq --force
+            brew link czmq --force
+          fi
+          ls -l /opt/homebrew/include/zmq.hpp
+          ls -l /opt/homebrew/include/czmq.h
+          ls -l /opt/homebrew/lib/libzmq*
+          ls -l /opt/homebrew/lib/libczmq*
+          ls -l /opt/homebrew/lib/pkgconfig/libzmq.pc
+          ls -l /opt/homebrew/lib/pkgconfig/libczmq.pc
 
       - name: Install GCC 10
         run: |
           brew install gcc@10
-          echo "CC=/usr/local/bin/gcc-10" >> $GITHUB_ENV
-          echo "CXX=/usr/local/bin/g++-10" >> $GITHUB_ENV
+          echo "CC=/opt/homebrew/bin/gcc-10" >> $GITHUB_ENV
+          echo "CXX=/opt/homebrew/bin/g++-10" >> $GITHUB_ENV
 
       - name: Build and install OpenSSL 1.1.1 (static)
         run: |
           curl -L https://www.openssl.org/source/openssl-1.1.1w.tar.gz -o openssl-1.1.1w.tar.gz
           tar -xzf openssl-1.1.1w.tar.gz
           cd openssl-1.1.1w
-          ./Configure darwin64-x86_64-cc no-shared --prefix=$HOME/openssl-1.1.1 CC=/usr/local/bin/gcc-10
+          ./Configure darwin64-arm64-cc no-shared --prefix=$HOME/openssl-1.1.1 CC=/opt/homebrew/bin/gcc-10
           make depend
           make -j$(sysctl -n hw.ncpu)
           make install
           cd ..
-          # Verify static libraries
           ls -l $HOME/openssl-1.1.1/lib/lib*.a
           echo "OPENSSL_ROOT_DIR=$HOME/openssl-1.1.1" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH=$HOME/openssl-1.1.1/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
@@ -56,9 +81,8 @@ jobs:
           tar -xzf boost_1_75_0.tar.gz
           cd boost_1_75_0
           ./bootstrap.sh --prefix=$HOME/boost-1.75
-          ./b2 -j$(sysctl -n hw.ncpu) --without-python cxxflags="-std=c++11" link=static runtime-link=static install
+          ./b2 -j$(sysctl -n hw.ncpu) --without-python cxxflags="-std=c++11 -arch arm64" link=static runtime-link=static install
           cd ..
-          # Verify Boost static libraries
           ls -l $HOME/boost-1.75/lib/libboost_system.a
           echo "BOOST_ROOT=$HOME/boost-1.75" >> $GITHUB_ENV
 
@@ -73,32 +97,34 @@ jobs:
         run: |
           cd build
           cmake .. \
-            -DCMAKE_C_COMPILER=/usr/local/bin/gcc-10 \
-            -DCMAKE_CXX_COMPILER=/usr/local/bin/g++-10 \
+            -DCMAKE_C_COMPILER=/opt/homebrew/bin/gcc-10 \
+            -DCMAKE_CXX_COMPILER=/opt/homebrew/bin/g++-10 \
             -DOPENSSL_ROOT_DIR=$HOME/openssl-1.1.1 \
             -DBOOST_ROOT=$HOME/boost-1.75 \
-            -DUNBOUND_INCLUDE_DIR=/usr/local/include \
-            -DUNBOUND_LIBRARY=/usr/local/lib/libunbound.a \
-            -DZMQ_INCLUDE_DIR=/usr/local/include \
-            -DZMQ_LIBRARY=/usr/local/lib/libzmq.a \
+            -DUNBOUND_INCLUDE_DIR=/opt/homebrew/include \
+            -DUNBOUND_LIBRARY=/opt/homebrew/lib/libunbound.a \
+            -DZMQ_INCLUDE_DIR=/opt/homebrew/include \
+            -DZMQ_LIBRARY=/opt/homebrew/lib/libzmq.a \
+            -DCZMQ_INCLUDE_DIR=/opt/homebrew/include \
+            -DCZMQ_LIBRARY=/opt/homebrew/lib/libczmq.a \
             -DCMAKE_BUILD_TYPE=Release \
             -DSTATIC=ON \
             -DBoost_USE_STATIC_RUNTIME=ON \
             -DUSE_SINGLE_BUILDDIR=1 \
-            -DARCH=x86_64 \
+            -DARCH=arm64 \
             -DCMAKE_POLICY_DEFAULT_CMP0057=NEW \
             -DBUILD_64=ON
 
-      - name: Build Ryo (release-static-mac-x86_64)
+      - name: Build Ryo (release-static-mac-arm64)
         run: |
           cd build
-          make release-static-mac-x86_64 -j$(sysctl -n hw.ncpu)
+          make release-static-mac-arm64 -j$(sysctl -n hw.ncpu)
 
       - name: Run tests (optional)
         run: |
           cd build
           make release-test
-        continue-on-error: true # Tests may fail on dev branch
+        continue-on-error: true
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
