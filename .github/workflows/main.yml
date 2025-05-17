@@ -26,10 +26,10 @@ jobs:
 
       - name: Install Homebrew dependencies
         run: |
-          brew uninstall gcc@13 || true
-          brew install gcc@13
+          brew uninstall gcc@10 || true
+          brew install gcc@10
           brew install --formula cmake pkg-config unbound libsodium miniupnpc hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
-          /usr/local/bin/gcc-13 --version
+          /usr/local/bin/gcc-10 --version
           ls -l /usr/local/lib/libunbound*
           ls -l /usr/local/opt/readline/include/readline/readline.h || true
           ls -l /usr/local/opt/readline/lib/libreadline.a || true
@@ -41,57 +41,55 @@ jobs:
       - name: Test compiler
         run: |
           echo "int main() { return 0; }" > test.c
-          /usr/local/bin/gcc-13 test.c -o test
+          /usr/local/bin/gcc-10 test.c -o test
           ./test
 
-      - name: Attempt to install zeromq@4.3.4
+      - name: Build and install ZeroMQ 3.2.5 (static)
         run: |
-          brew tap homebrew/core || true
-          brew install zeromq@4.3.4 || echo "zeromq@4.3.4 not available, proceeding to manual build"
-          if brew list zeromq@4.3.4 >/dev/null 2>&1; then
-            brew unlink zeromq@4.3.4 || true
-            brew link zeromq@4.3.4 --force
-          fi
-          brew info zeromq@4.3.4 || true
-          find /usr/local/Cellar -name zmq.hpp || true
-          find /usr/local/Cellar -name libzmq.a || true
-          ls -l /usr/local/include/zmq.hpp || true
-          ls -l /usr/local/lib/libzmq* || true
-          ls -l /usr/local/lib/pkgconfig/libzmq.pc || true
-          pkg-config --modversion zmq || true
-
-      - name: Build and install ZeroMQ 4.3.4 (static) if Homebrew fails
-        run: |
-          if [ ! -f /usr/local/include/zmq.hpp ]; then
-            curl -L https://github.com/zeromq/libzmq/releases/download/v4.3.4/zeromq-4.3.4.tar.gz -o zeromq-4.3.4.tar.gz
-            tar -xzf zeromq-4.3.4.tar.gz
-            cd zeromq-4.3.4
-            # Patch src/clock.hpp to avoid CLOCK_REALTIME redefinition
+          curl -L https://github.com/zeromq/libzmq/releases/download/v3.2.5/zeromq-3.2.5.tar.gz -o zeromq-3.2.5.tar.gz
+          tar -xzf zeromq-3.2.5.tar.gz
+          cd zeromq-3.2.5
+          # Patch src/clock.hpp to avoid CLOCK_REALTIME redefinition (if present)
+          if grep -q "#define CLOCK_REALTIME" src/clock.hpp; then
             sed -i '' '/#define CLOCK_REALTIME 0/d' src/clock.hpp
-            # Configure with --disable-tipc and suppress warnings
-            ./configure --prefix=/usr/local --enable-static --disable-shared --disable-tipc \
-              CC=/usr/local/bin/gcc-13 CXX=/usr/local/bin/g++-13 \
-              CFLAGS="$CPPFLAGS -Wno-error -Wno-error=packed-not-aligned" \
-              CXXFLAGS="$CPPFLAGS -Wno-error -Wno-error=packed-not-aligned" \
-              LDFLAGS="$LDFLAGS"
-            make -j$(sysctl -n hw.ncpu)
-            make install
-            cd ..
           fi
-          ls -l /usr/local/include/zmq.hpp
+          # Configure with --disable-tipc and suppress warnings
+          ./configure --prefix=/usr/local --enable-static --disable-shared --disable-tipc \
+            CC=/usr/local/bin/gcc-10 CXX=/usr/local/bin/g++-10 \
+            CFLAGS="$CPPFLAGS -Wno-error -Wno-error=packed-not-aligned" \
+            CXXFLAGS="$CPPFLAGS -Wno-error -Wno-error=packed-not-aligned" \
+            LDFLAGS="$LDFLAGS"
+          make -j$(sysctl -n hw.ncpu)
+          make install
+          cd ..
+          ls -l /usr/local/include/zmq.h
           ls -l /usr/local/lib/libzmq.a
+
+      - name: Install cppzmq
+        run: |
+          git clone https://github.com/zeromq/cppzmq.git
+          cd cppzmq
+          # Use a specific commit compatible with ZeroMQ 3.2.5
+          git checkout v4.2.2  # Matches ZeroMQ 3.x compatibility
+          cp zmq.hpp /usr/local/include/
+          cd ..
+          ls -l /usr/local/include/zmq.hpp
           echo "ZMQ_INCLUDE_DIR=/usr/local/include" >> $GITHUB_ENV
           echo "ZMQ_LIBRARY=/usr/local/lib/libzmq.a" >> $GITHUB_ENV
           echo "CMAKE_INCLUDE_PATH=/usr/local/include:$CMAKE_INCLUDE_PATH" >> $GITHUB_ENV
           echo "CMAKE_LIBRARY_PATH=/usr/local/lib:$CMAKE_LIBRARY_PATH" >> $GITHUB_ENV
 
-      - name: Fallback to latest ZeroMQ if manual build fails
+      - name: Fallback to latest ZeroMQ with cppzmq if manual build fails
         run: |
-          if [ ! -f /usr/local/include/zmq.hpp ]; then
-            brew uninstall zeromq@4.3.4 || true
+          if [ ! -f /usr/local/include/zmq.hpp ] || [ ! -f /usr/local/lib/libzmq.a ]; then
             brew install zeromq
             brew unlink zeromq || true
             brew link zeromq --force
+            git clone https://github.com/zeromq/cppzmq.git
+            cd cppzmq
+            git checkout v4.9.0  # Matches newer ZeroMQ versions
+            cp zmq.hpp /usr/local/include/
+            cd ..
             ls -l /usr/local/include/zmq.hpp || true
             ls -l /usr/local/lib/libzmq* || true
             echo "ZMQ_INCLUDE_DIR=/usr/local/include" >> $GITHUB_ENV
@@ -103,7 +101,7 @@ jobs:
           curl -L https://www.openssl.org/source/openssl-1.1.1w.tar.gz -o openssl-1.1.1w.tar.gz
           tar -xzf openssl-1.1.1w.tar.gz
           cd openssl-1.1.1w
-          ./Configure darwin64-x86_64-cc no-shared --prefix=$HOME/openssl-1.1.1 CC=/usr/local/bin/gcc-13
+          ./Configure darwin64-x86_64-cc no-shared --prefix=$HOME/openssl-1.1.1 CC=/usr/local/bin/gcc-10
           make depend
           make -j$(sysctl -n hw.ncpu)
           make install
@@ -134,8 +132,8 @@ jobs:
         run: |
           cd build
           cmake .. \
-            -DCMAKE_C_COMPILER=/usr/local/bin/gcc-13 \
-            -DCMAKE_CXX_COMPILER=/usr/local/bin/g++-13 \
+            -DCMAKE_C_COMPILER=/usr/local/bin/gcc-10 \
+            -DCMAKE_CXX_COMPILER=/usr/local/bin/g++-10 \
             -DOPENSSL_ROOT_DIR=$HOME/openssl-1.1.1 \
             -DBOOST_ROOT=$HOME/boost-1.75 \
             -DUNBOUND_INCLUDE_DIR=/usr/local/include \
@@ -170,7 +168,7 @@ jobs:
 
       - name: Print config.log if ZeroMQ build fails
         run: |
-          if [ ! -f /usr/local/include/zmq.hpp ]; then
-            cat zeromq-4.3.4/config.log || true
+          if [ ! -f /usr/local/include/zmq.h ]; then
+            cat zeromq-3.2.5/config.log || true
           fi
         if: failure()
