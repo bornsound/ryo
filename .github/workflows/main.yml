@@ -28,7 +28,7 @@ jobs:
         run: |
           brew uninstall gcc@10 || true
           brew install gcc@10
-          brew install --formula cmake pkg-config unbound libsodium miniupnpc hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
+          brew install pkg-config unbound libsodium miniupnpc hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
           /usr/local/bin/gcc-10 --version
           ls -l /usr/local/lib/libunbound*
           ls -l /usr/local/opt/readline/include/readline/readline.h || true
@@ -37,6 +37,19 @@ jobs:
           echo "CPPFLAGS=-I/usr/local/opt/libunwind-headers/include -I$(xcrun --show-sdk-path)/usr/include" >> $GITHUB_ENV
           echo "LDFLAGS=-L/usr/local/opt/libunwind-headers/lib -L$(xcrun --show-sdk-path)/usr/lib" >> $GITHUB_ENV
           echo "READLINE_ROOT=/usr/local/opt/readline" >> $GITHUB_ENV
+
+      - name: Install CMake 3.10.2
+        run: |
+          brew uninstall cmake || true
+          curl -L https://cmake.org/files/v3.10/cmake-3.10.2.tar.gz -o cmake-3.10.2.tar.gz
+          tar -xzf cmake-3.10.2.tar.gz
+          cd cmake-3.10.2
+          ./bootstrap
+          make -j$(sysctl -n hw.ncpu)
+          sudo make install
+          cd ..
+          /usr/local/bin/cmake --version
+          rm -rf cmake-3.10.2 cmake-3.10.2.tar.gz
 
       - name: Test compiler
         run: |
@@ -58,23 +71,25 @@ jobs:
             CXXFLAGS="$CPPFLAGS -Wno-error -Wno-error=packed-not-aligned" \
             LDFLAGS="$LDFLAGS"
           make -j$(sysctl -n hw.ncpu)
-          make install
+          sudo make install
           cd ..
           ls -l /usr/local/include/zmq.h
           ls -l /usr/local/lib/libzmq.a
+          rm -rf zeromq-4.3.5 zeromq-4.3.5.tar.gz
 
       - name: Install cppzmq
         run: |
           git clone https://github.com/zeromq/cppzmq.git
           cd cppzmq
           git checkout v4.9.0
-          cp zmq.hpp /usr/local/include/
+          sudo cp zmq.hpp /usr/local/include/
           cd ..
           ls -l /usr/local/include/zmq.hpp
           echo "ZMQ_INCLUDE_DIR=/usr/local/include" >> $GITHUB_ENV
           echo "ZMQ_LIBRARY=/usr/local/lib/libzmq.a" >> $GITHUB_ENV
           echo "CMAKE_INCLUDE_PATH=/usr/local/include:$CMAKE_INCLUDE_PATH" >> $GITHUB_ENV
           echo "CMAKE_LIBRARY_PATH=/usr/local/lib:$CMAKE_LIBRARY_PATH" >> $GITHUB_ENV
+          rm -rf cppzmq
 
       - name: Build and install Boost 1.75 (static)
         run: |
@@ -85,9 +100,9 @@ jobs:
           ./b2 -j$(sysctl -n hw.ncpu) --without-python cxxflags="-std=c++11" link=static runtime-link=static install
           cd ..
           ls -l $HOME/boost-1.75/lib/libboost*.a
-          find $HOME/boost-1.75 -name "BoostConfig.cmake" || true
           echo "BOOST_ROOT=$HOME/boost-1.75" >> $GITHUB_ENV
           echo "CMAKE_PREFIX_PATH=$HOME/boost-1.75:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
+          rm -rf boost_1_75_0 boost_1_75_0.tar.gz
 
       - name: Fallback to Homebrew Boost
         run: |
@@ -98,20 +113,9 @@ jobs:
           fi
           ls -l /usr/local/opt/boost/lib/libboost*.a || true
 
-      - name: Inspect CMakeLists.txt and src/rpc/CMakeLists.txt
-        run: |
-          cat -n CMakeLists.txt | grep -A 20 -B 20 851
-          cat -n src/CMakeLists.txt | grep -A 20 -B 20 102
-          cat -n src/rpc/CMakeLists.txt | grep -A 20 -B 20 48 || true
-          ls -l src/rpc/* || true
-          find src -type f -name "*instantiation*" || true
-          ls -l src/rpc/*.cpp || true
-
       - name: Fix src/rpc/CMakeLists.txt syntax
         run: |
-          # Rewrite rpc_sources to fix syntax
           sed -i '' 's/set(rpc_sources.*)/set(rpc_sources core_rpc_server.cpp)/' src/rpc/CMakeLists.txt
-          # Print updated file
           cat -n src/rpc/CMakeLists.txt || true
 
       - name: Create build directory
@@ -121,11 +125,10 @@ jobs:
       - name: Configure CMake for static build
         run: |
           cd build
-          cmake .. \
+          /usr/local/bin/cmake .. \
             -DCMAKE_C_COMPILER=/usr/local/bin/gcc-10 \
             -DCMAKE_CXX_COMPILER=/usr/local/bin/g++-10 \
             -DCMAKE_C_STANDARD=11 \
-            -DOPENSSL_ROOT_DIR=$HOME/openssl-1.1.1 \
             -DBOOST_ROOT=$BOOST_ROOT \
             -DUNBOUND_INCLUDE_DIR=/usr/local/include \
             -DUNBOUND_LIBRARY=/usr/local/lib/libunbound.a \
