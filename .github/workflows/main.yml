@@ -26,10 +26,10 @@ jobs:
 
       - name: Install Homebrew dependencies
         run: |
-          brew uninstall gcc@10 || true
-          brew install gcc@10
+          brew uninstall gcc@13 || true
+          brew install gcc@13
           brew install --formula cmake pkg-config unbound libsodium miniupnpc hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
-          /usr/local/bin/gcc-10 --version
+          /usr/local/bin/gcc-13 --version
           ls -l /usr/local/lib/libunbound*
           ls -l /usr/local/opt/readline/include/readline/readline.h || true
           ls -l /usr/local/opt/readline/lib/libreadline.a || true
@@ -37,6 +37,12 @@ jobs:
           echo "CPPFLAGS=-I/usr/local/opt/libunwind-headers/include -I$(xcrun --show-sdk-path)/usr/include" >> $GITHUB_ENV
           echo "LDFLAGS=-L/usr/local/opt/libunwind-headers/lib -L$(xcrun --show-sdk-path)/usr/lib" >> $GITHUB_ENV
           echo "READLINE_ROOT=/usr/local/opt/readline" >> $GITHUB_ENV
+
+      - name: Test compiler
+        run: |
+          echo "int main() { return 0; }" > test.c
+          /usr/local/bin/gcc-13 test.c -o test
+          ./test
 
       - name: Attempt to install zeromq@4.3.4
         run: |
@@ -62,9 +68,9 @@ jobs:
             cd zeromq-4.3.4
             # Patch src/clock.hpp to avoid CLOCK_REALTIME redefinition
             sed -i '' '/#define CLOCK_REALTIME 0/d' src/clock.hpp
-            # Disable -Werror and suppress packed-not-aligned
-            ./configure --prefix=/usr/local --enable-static --disable-shared \
-              CC=/usr/local/bin/gcc-10 CXX=/usr/local/bin/g++-10 \
+            # Configure with --disable-tipc and suppress warnings
+            ./configure --prefix=/usr/local --enable-static --disable-shared --disable-tipc \
+              CC=/usr/local/bin/gcc-13 CXX=/usr/local/bin/g++-13 \
               CFLAGS="$CPPFLAGS -Wno-error -Wno-error=packed-not-aligned" \
               CXXFLAGS="$CPPFLAGS -Wno-error -Wno-error=packed-not-aligned" \
               LDFLAGS="$LDFLAGS"
@@ -92,18 +98,12 @@ jobs:
             echo "ZMQ_LIBRARY=/usr/local/lib/libzmq.a" >> $GITHUB_ENV
           fi
 
-      - name: Install GCC 10 (redundant, kept for clarity)
-        run: |
-          brew install gcc@10
-          echo "CC=/usr/local/bin/gcc-10" >> $GITHUB_ENV
-          echo "CXX=/usr/local/bin/g++-10" >> $GITHUB_ENV
-
       - name: Build and install OpenSSL 1.1.1 (static)
         run: |
           curl -L https://www.openssl.org/source/openssl-1.1.1w.tar.gz -o openssl-1.1.1w.tar.gz
           tar -xzf openssl-1.1.1w.tar.gz
           cd openssl-1.1.1w
-          ./Configure darwin64-x86_64-cc no-shared --prefix=$HOME/openssl-1.1.1 CC=/usr/local/bin/gcc-10
+          ./Configure darwin64-x86_64-cc no-shared --prefix=$HOME/openssl-1.1.1 CC=/usr/local/bin/gcc-13
           make depend
           make -j$(sysctl -n hw.ncpu)
           make install
@@ -134,8 +134,8 @@ jobs:
         run: |
           cd build
           cmake .. \
-            -DCMAKE_C_COMPILER=/usr/local/bin/gcc-10 \
-            -DCMAKE_CXX_COMPILER=/usr/local/bin/g++-10 \
+            -DCMAKE_C_COMPILER=/usr/local/bin/gcc-13 \
+            -DCMAKE_CXX_COMPILER=/usr/local/bin/g++-13 \
             -DOPENSSL_ROOT_DIR=$HOME/openssl-1.1.1 \
             -DBOOST_ROOT=$HOME/boost-1.75 \
             -DUNBOUND_INCLUDE_DIR=/usr/local/include \
