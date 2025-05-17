@@ -26,35 +26,26 @@ jobs:
 
       - name: Install Homebrew dependencies
         run: |
-          # Reinstall gcc@10 to ensure clean installation
           brew uninstall gcc@10 || true
           brew install gcc@10
           brew install --formula cmake pkg-config unbound libsodium miniupnpc hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
-          # Verify gcc@10
           /usr/local/bin/gcc-10 --version
-          # Verify libunbound
           ls -l /usr/local/lib/libunbound*
-          # Verify readline
           ls -l /usr/local/opt/readline/include/readline/readline.h || true
           ls -l /usr/local/opt/readline/lib/libreadline.a || true
           echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
-          # Set CPPFLAGS and LDFLAGS for libunwind-headers and SDK
           echo "CPPFLAGS=-I/usr/local/opt/libunwind-headers/include -I$(xcrun --show-sdk-path)/usr/include" >> $GITHUB_ENV
           echo "LDFLAGS=-L/usr/local/opt/libunwind-headers/lib -L$(xcrun --show-sdk-path)/usr/lib" >> $GITHUB_ENV
-          # Set readline path
           echo "READLINE_ROOT=/usr/local/opt/readline" >> $GITHUB_ENV
 
       - name: Attempt to install zeromq@4.3.4
         run: |
-          # Try to install specific version
           brew tap homebrew/core || true
           brew install zeromq@4.3.4 || echo "zeromq@4.3.4 not available, proceeding to manual build"
-          # Unlink and relink if installed
           if brew list zeromq@4.3.4 >/dev/null 2>&1; then
             brew unlink zeromq@4.3.4 || true
             brew link zeromq@4.3.4 --force
           fi
-          # Verify Homebrew installation
           brew info zeromq@4.3.4 || true
           find /usr/local/Cellar -name zmq.hpp || true
           find /usr/local/Cellar -name libzmq.a || true
@@ -69,9 +60,14 @@ jobs:
             curl -L https://github.com/zeromq/libzmq/releases/download/v4.3.4/zeromq-4.3.4.tar.gz -o zeromq-4.3.4.tar.gz
             tar -xzf zeromq-4.3.4.tar.gz
             cd zeromq-4.3.4
+            # Patch src/clock.hpp to avoid CLOCK_REALTIME redefinition
+            sed -i '' '/#define CLOCK_REALTIME 0/d' src/clock.hpp
+            # Disable -Werror and suppress packed-not-aligned
             ./configure --prefix=/usr/local --enable-static --disable-shared \
               CC=/usr/local/bin/gcc-10 CXX=/usr/local/bin/g++-10 \
-              CFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS"
+              CFLAGS="$CPPFLAGS -Wno-error -Wno-error=packed-not-aligned" \
+              CXXFLAGS="$CPPFLAGS -Wno-error -Wno-error=packed-not-aligned" \
+              LDFLAGS="$LDFLAGS"
             make -j$(sysctl -n hw.ncpu)
             make install
             cd ..
@@ -171,3 +167,10 @@ jobs:
         with:
           name: ryo-binaries
           path: build/release/bin/
+
+      - name: Print config.log if ZeroMQ build fails
+        run: |
+          if [ ! -f /usr/local/include/zmq.hpp ]; then
+            cat zeromq-4.3.4/config.log || true
+          fi
+        if: failure()
