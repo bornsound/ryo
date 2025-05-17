@@ -28,35 +28,22 @@ jobs:
         run: |
           brew uninstall gcc@10 || true
           brew install gcc@10
-          brew install pkg-config unbound libsodium miniupnpc hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
+          brew install cmake pkg-config unbound libsodium miniupnpc hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
           /usr/local/bin/gcc-10 --version
+          cmake --version
           ls -l /usr/local/lib/libunbound*
           ls -l /usr/local/opt/readline/include/readline/readline.h || true
           ls -l /usr/local/opt/readline/lib/libreadline.a || true
           echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
-          echo "CPPFLAGS=-I/usr/local/opt/libunwind-headers/include -I$(xcrun --show-sdk-path)/usr/include" >> $GITHUB_ENV
-          echo "LDFLAGS=-L/usr/local/opt/libunwind-headers/lib -L$(xcrun --show-sdk-path)/usr/lib" >> $GITHUB_ENV
           echo "READLINE_ROOT=/usr/local/opt/readline" >> $GITHUB_ENV
-
-      - name: Install CMake 3.10.2
-        run: |
-          brew uninstall cmake || true
-          curl -L https://cmake.org/files/v3.10/cmake-3.10.2.tar.gz -o cmake-3.10.2.tar.gz
-          tar -xzf cmake-3.10.2.tar.gz
-          cd cmake-3.10.2
-          ./bootstrap
-          make -j$(sysctl -n hw.ncpu)
-          sudo make install
-          cd ..
-          /usr/local/bin/cmake --version
-          rm -rf cmake-3.10.2 cmake-3.10.2.tar.gz
 
       - name: Verify compiler C++11 support
         run: |
           echo "#include <memory>" > test.cpp
           echo "int main() { std::unique_ptr<int> ptr = std::make_unique<int>(42); return 0; }" >> test.cpp
-          /usr/local/bin/g++-10 -std=c++14 test.cpp -o test
+          /usr/local/bin/g++-10 -std=c++14 -o test test.cpp
           ./test
+          /usr/local/bin/g++-10 --version
           rm test.cpp test
 
       - name: Build and install ZeroMQ 4.3.5 (static)
@@ -69,9 +56,9 @@ jobs:
           fi
           ./configure --prefix=/usr/local --enable-static --disable-shared --disable-tipc \
             CC=/usr/local/bin/gcc-10 CXX=/usr/local/bin/g++-10 \
-            CFLAGS="$CPPFLAGS -Wno-error -Wno-error=packed-not-aligned" \
-            CXXFLAGS="$CPPFLAGS -Wno-error -Wno-error=packed-not-aligned" \
-            LDFLAGS="$LDFLAGS"
+            CFLAGS="-Wno-error -Wno-error=packed-not-aligned" \
+            CXXFLAGS="-std=c++11 -Wno-error -Wno-error=packed-not-aligned" \
+            LDFLAGS=""
           make -j$(sysctl -n hw.ncpu)
           sudo make install
           cd ..
@@ -127,12 +114,13 @@ jobs:
       - name: Configure CMake for static build
         run: |
           cd build
-          rm -rf CMakeCache.txt CMakeFiles # Clear cache to avoid stale config
-          /usr/local/bin/cmake .. \
+          rm -rf CMakeCache.txt CMakeFiles # Clear cache
+          cmake .. \
             -DCMAKE_C_COMPILER=/usr/local/bin/gcc-10 \
             -DCMAKE_CXX_COMPILER=/usr/local/bin/g++-10 \
             -DCMAKE_C_STANDARD=11 \
             -DCMAKE_CXX_STANDARD=11 \
+            -DCMAKE_CXX_FLAGS_INIT="-std=c++11" \
             -DCMAKE_CXX_FLAGS="-std=c++11" \
             -DUNBOUND_INCLUDE_DIR=/usr/local/include \
             -DUNBOUND_LIBRARY=/usr/local/lib/libunbound.a \
@@ -149,7 +137,8 @@ jobs:
             -DUSE_SINGLE_BUILDDIR=1 \
             -DARCH=x86_64 \
             -DCMAKE_POLICY_DEFAULT_CMP0057=NEW \
-            -DBUILD_64=ON
+            -DBUILD_64=ON \
+            -DCMAKE_VERBOSE_MAKEFILE=ON
 
       - name: Build Ryo (release-static-mac-x86_64)
         run: |
@@ -172,4 +161,5 @@ jobs:
         run: |
           cat CMakeFiles/CMakeOutput.log || true
           cat CMakeFiles/CMakeError.log || true
+          find . -name "CMake*.log" -exec cat {} \;
         if: failure()
