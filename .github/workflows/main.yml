@@ -26,34 +26,46 @@ jobs:
           # Verify ZeroMQ (libzmq) and CZMQ
           brew info zmq
           brew info czmq
+          # Find headers and libraries
+          find /opt/homebrew/Cellar -name zmq.hpp || true
+          find /opt/homebrew/Cellar -name czmq.h || true
+          find /opt/homebrew/Cellar -name libzmq.a || true
+          find /opt/homebrew/Cellar -name libczmq.a || true
           ls -l /opt/homebrew/include/zmq.hpp || true
           ls -l /opt/homebrew/include/czmq.h || true
           ls -l /opt/homebrew/lib/libzmq* || true
           ls -l /opt/homebrew/lib/libczmq* || true
           ls -l /opt/homebrew/lib/pkgconfig/libzmq.pc || true
           ls -l /opt/homebrew/lib/pkgconfig/libczmq.pc || true
-          ls -l /opt/homebrew/Cellar/zeromq/*/include/zmq.hpp || true
-          ls -l /opt/homebrew/Cellar/czmq/*/include/czmq.h || true
           pkg-config --modversion zmq || true
           pkg-config --modversion czmq || true
           echo "PKG_CONFIG_PATH=/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
           # Set CPPFLAGS for libunwind-headers
           echo "CPPFLAGS=-I/opt/homebrew/opt/libunwind-headers/include" >> $GITHUB_ENV
 
-      - name: Reinstall ZeroMQ and CZMQ if needed
+      - name: Unlink and relink ZeroMQ and CZMQ
         run: |
-          if [ ! -f /opt/homebrew/include/zmq.hpp ] || [ ! -f /opt/homebrew/include/czmq.h ]; then
-            brew uninstall zmq czmq || true
-            brew install zmq czmq
-            brew link zmq --force
-            brew link czmq --force
-          fi
-          ls -l /opt/homebrew/include/zmq.hpp
-          ls -l /opt/homebrew/include/czmq.h
-          ls -l /opt/homebrew/lib/libzmq*
-          ls -l /opt/homebrew/lib/libczmq*
-          ls -l /opt/homebrew/lib/pkgconfig/libzmq.pc
-          ls -l /opt/homebrew/lib/pkgconfig/libczmq.pc
+          # Unlink and relink to fix symlinking issues
+          brew unlink zmq || true
+          brew link zmq --force
+          brew unlink czmq || true
+          brew link czmq --force
+          # Find and export paths
+          ZMQ_INCLUDE=$(find /opt/homebrew/Cellar/zeromq -name zmq.hpp -exec dirname {} \; | head -n 1)
+          CZMQ_INCLUDE=$(find /opt/homebrew/Cellar/czmq -name czmq.h -exec dirname {} \; | head -n 1)
+          ZMQ_LIB=$(find /opt/homebrew/Cellar/zeromq -name libzmq.a -exec dirname {} \; | head -n 1)
+          CZMQ_LIB=$(find /opt/homebrew/Cellar/czmq -name libczmq.a -exec dirname {} \; | head -n 1)
+          echo "ZMQ_INCLUDE_DIR=$ZMQ_INCLUDE" >> $GITHUB_ENV
+          echo "CZMQ_INCLUDE_DIR=$CZMQ_INCLUDE" >> $GITHUB_ENV
+          echo "ZMQ_LIBRARY=$ZMQ_LIB/libzmq.a" >> $GITHUB_ENV
+          echo "CZMQ_LIBRARY=$CZMQ_LIB/libczmq.a" >> $GITHUB_ENV
+          echo "CMAKE_INCLUDE_PATH=$ZMQ_INCLUDE:$CZMQ_INCLUDE:$CMAKE_INCLUDE_PATH" >> $GITHUB_ENV
+          echo "CMAKE_LIBRARY_PATH=$ZMQ_LIB:$CZMQ_LIB:$CMAKE_LIBRARY_PATH" >> $GITHUB_ENV
+          # Verify symlinked files
+          ls -l /opt/homebrew/include/zmq.hpp || true
+          ls -l /opt/homebrew/include/czmq.h || true
+          ls -l /opt/homebrew/lib/libzmq* || true
+          ls -l /opt/homebrew/lib/libczmq* || true
 
       - name: Install GCC 10
         run: |
@@ -103,10 +115,10 @@ jobs:
             -DBOOST_ROOT=$HOME/boost-1.75 \
             -DUNBOUND_INCLUDE_DIR=/opt/homebrew/include \
             -DUNBOUND_LIBRARY=/opt/homebrew/lib/libunbound.a \
-            -DZMQ_INCLUDE_DIR=/opt/homebrew/include \
-            -DZMQ_LIBRARY=/opt/homebrew/lib/libzmq.a \
-            -DCZMQ_INCLUDE_DIR=/opt/homebrew/include \
-            -DCZMQ_LIBRARY=/opt/homebrew/lib/libczmq.a \
+            -DZMQ_INCLUDE_DIR=$ZMQ_INCLUDE_DIR \
+            -DZMQ_LIBRARY=$ZMQ_LIBRARY \
+            -DCZMQ_INCLUDE_DIR=$CZMQ_INCLUDE_DIR \
+            -DCZMQ_LIBRARY=$CZMQ_LIBRARY \
             -DCMAKE_BUILD_TYPE=Release \
             -DSTATIC=ON \
             -DBoost_USE_STATIC_RUNTIME=ON \
