@@ -20,7 +20,7 @@ jobs:
 
       - name: Install Homebrew dependencies
         run: |
-          brew install --formula cmake@3.4 pkg-config unbound libsodium miniupnpc zmq hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
+          brew install --formula cmake pkg-config unbound libsodium miniupnpc zmq hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
           # Verify libunbound is installed
           ls -l /usr/local/lib/libunbound*
 
