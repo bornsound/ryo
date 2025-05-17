@@ -20,12 +20,14 @@ jobs:
 
       - name: Install Homebrew dependencies
         run: |
-          brew install --formula cmake pkg-config unbound libsodium miniupnpc zmq czmq hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
+          # Install older versions of zeromq and czmq
+          brew install zeromq@4.3.4 czmq@4.2.0
+          brew install --formula cmake pkg-config unbound libsodium miniupnpc hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
           # Verify libunbound
           ls -l /usr/local/lib/libunbound*
           # Verify ZeroMQ (libzmq) and CZMQ
-          brew info zmq
-          brew info czmq
+          brew info zeromq@4.3.4
+          brew info czmq@4.2.0
           # Find headers and libraries
           find /usr/local/Cellar -name zmq.hpp || true
           find /usr/local/Cellar -name czmq.h || true
@@ -37,24 +39,29 @@ jobs:
           ls -l /usr/local/lib/libczmq* || true
           ls -l /usr/local/lib/pkgconfig/libzmq.pc || true
           ls -l /usr/local/lib/pkgconfig/libczmq.pc || true
+          # Verify readline
+          ls -l /usr/local/opt/readline/include/readline/readline.h || true
+          ls -l /usr/local/opt/readline/lib/libreadline.a || true
           pkg-config --modversion zmq || true
           pkg-config --modversion czmq || true
           echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
           # Set CPPFLAGS for libunwind-headers
           echo "CPPFLAGS=-I/usr/local/opt/libunwind-headers/include" >> $GITHUB_ENV
+          # Set readline path
+          echo "READLINE_ROOT=/usr/local/opt/readline" >> $GITHUB_ENV
 
       - name: Unlink and relink ZeroMQ and CZMQ
         run: |
           # Unlink and relink to fix symlinking issues
-          brew unlink zmq || true
-          brew link zmq --force
-          brew unlink czmq || true
-          brew link czmq --force
+          brew unlink zeromq@4.3.4 || true
+          brew link zeromq@4.3.4 --force
+          brew unlink czmq@4.2.0 || true
+          brew link czmq@4.2.0 --force
           # Find and export paths
-          ZMQ_INCLUDE=$(find /usr/local/Cellar/zeromq -name zmq.hpp -exec dirname {} \; | head -n 1)
-          CZMQ_INCLUDE=$(find /usr/local/Cellar/czmq -name czmq.h -exec dirname {} \; | head -n 1)
-          ZMQ_LIB=$(find /usr/local/Cellar/zeromq -name libzmq.a -exec dirname {} \; | head -n 1)
-          CZMQ_LIB=$(find /usr/local/Cellar/czmq -name libczmq.a -exec dirname {} \; | head -n 1)
+          ZMQ_INCLUDE=$(find /usr/local/Cellar/zeromq@4.3.4 -name zmq.hpp -exec dirname {} \; | head -n 1)
+          CZMQ_INCLUDE=$(find /usr/local/Cellar/czmq@4.2.0 -name czmq.h -exec dirname {} \; | head -n 1)
+          ZMQ_LIB=$(find /usr/local/Cellar/zeromq@4.3.4 -name libzmq.a -exec dirname {} \; | head -n 1)
+          CZMQ_LIB=$(find /usr/local/Cellar/czmq@4.2.0 -name libczmq.a -exec dirname {} \; | head -n 1)
           echo "ZMQ_INCLUDE_DIR=$ZMQ_INCLUDE" >> $GITHUB_ENV
           echo "CZMQ_INCLUDE_DIR=$CZMQ_INCLUDE" >> $GITHUB_ENV
           echo "ZMQ_LIBRARY=$ZMQ_LIB/libzmq.a" >> $GITHUB_ENV
@@ -119,6 +126,7 @@ jobs:
             -DZMQ_LIBRARY=$ZMQ_LIBRARY \
             -DCZMQ_INCLUDE_DIR=$CZMQ_INCLUDE_DIR \
             -DCZMQ_LIBRARY=$CZMQ_LIBRARY \
+            -DREADLINE_ROOT=$READLINE_ROOT \
             -DCMAKE_BUILD_TYPE=Release \
             -DSTATIC=ON \
             -DBoost_USE_STATIC_RUNTIME=ON \
