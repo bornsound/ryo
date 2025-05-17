@@ -110,10 +110,7 @@ jobs:
       - name: Fix src/rpc/CMakeLists.txt syntax
         run: |
           # Rewrite rpc_sources to fix syntax
-          sed -i '' '/set(rpc_sources/,/)/c\
-  set(rpc_sources\n\
-    core_rpc_server.cpp\n\
-  )' src/rpc/CMakeLists.txt
+          sed -i '' 's/set(rpc_sources.*)/set(rpc_sources core_rpc_server.cpp)/' src/rpc/CMakeLists.txt
           # Print updated file
           cat -n src/rpc/CMakeLists.txt || true
 
@@ -135,7 +132,7 @@ jobs:
             -DZMQ_LIBRARY=$ZMQ_LIBRARY \
             -DREADLINE_ROOT=$READLINE_ROOT \
             -DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH \
-            -DCMAKE_BUILD_TYPE=Release \
+            -CMAKE_BUILD_TYPE=Release \
             -DSTATIC=ON \
             -DBoost_USE_STATIC_RUNTIME=ON \
             -DUSE_SINGLE_BUILDDIR=1 \
