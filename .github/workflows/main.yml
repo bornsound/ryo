@@ -124,6 +124,7 @@ jobs:
           cmake .. \
             -DCMAKE_C_COMPILER=/usr/local/bin/gcc-10 \
             -DCMAKE_CXX_COMPILER=/usr/local/bin/g++-10 \
+            -DCMAKE_C_STANDARD=11 \
             -DOPENSSL_ROOT_DIR=$HOME/openssl-1.1.1 \
             -DBOOST_ROOT=$BOOST_ROOT \
             -DUNBOUND_INCLUDE_DIR=/usr/local/include \
@@ -131,8 +132,10 @@ jobs:
             -DZMQ_INCLUDE_DIR=$ZMQ_INCLUDE_DIR \
             -DZMQ_LIBRARY=$ZMQ_LIBRARY \
             -DREADLINE_ROOT=$READLINE_ROOT \
+            -DReadline_INCLUDE_DIR=/usr/local/opt/readline/include \
+            -DReadline_LIBRARY=/usr/local/opt/readline/lib/libreadline.a \
             -DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH \
-            -CMAKE_BUILD_TYPE=Release \
+            -DCMAKE_BUILD_TYPE=Release \
             -DSTATIC=ON \
             -DBoost_USE_STATIC_RUNTIME=ON \
             -DUSE_SINGLE_BUILDDIR=1 \
