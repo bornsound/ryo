@@ -47,8 +47,8 @@ jobs:
       - name: Build and install ZeroMQ 3.2.5 (static)
         run: |
           curl -L https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz -o zeromq-4.3.5.tar.gz
-          tar -xzf zeromq-3.2.5.tar.gz
-          cd zeromq-3.2.5
+          tar -xzf zeromq-4.3.5.tar.gz
+          cd zeromq-4.3.5
           # Patch src/clock.hpp to avoid CLOCK_REALTIME redefinition (if present)
           if grep -q "#define CLOCK_REALTIME" src/clock.hpp; then
             sed -i '' '/#define CLOCK_REALTIME 0/d' src/clock.hpp
