@@ -18,17 +18,29 @@ jobs:
           ref: dev
           submodules: recursive
 
+      - name: Install Xcode Command Line Tools
+        run: |
+          sudo xcode-select --install || true
+          sudo xcode-select --reset
+          xcode-select --print-path
+
       - name: Install Homebrew dependencies
         run: |
+          # Reinstall gcc@10 to ensure clean installation
+          brew uninstall gcc@10 || true
+          brew install gcc@10
           brew install --formula cmake pkg-config unbound libsodium miniupnpc hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
+          # Verify gcc@10
+          /usr/local/bin/gcc-10 --version
           # Verify libunbound
           ls -l /usr/local/lib/libunbound*
           # Verify readline
           ls -l /usr/local/opt/readline/include/readline/readline.h || true
           ls -l /usr/local/opt/readline/lib/libreadline.a || true
           echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
-          # Set CPPFLAGS for libunwind-headers
-          echo "CPPFLAGS=-I/usr/local/opt/libunwind-headers/include" >> $GITHUB_ENV
+          # Set CPPFLAGS and LDFLAGS for libunwind-headers and SDK
+          echo "CPPFLAGS=-I/usr/local/opt/libunwind-headers/include -I$(xcrun --show-sdk-path)/usr/include" >> $GITHUB_ENV
+          echo "LDFLAGS=-L/usr/local/opt/libunwind-headers/lib -L$(xcrun --show-sdk-path)/usr/lib" >> $GITHUB_ENV
           # Set readline path
           echo "READLINE_ROOT=/usr/local/opt/readline" >> $GITHUB_ENV
 
@@ -57,7 +69,9 @@ jobs:
             curl -L https://github.com/zeromq/libzmq/releases/download/v4.3.4/zeromq-4.3.4.tar.gz -o zeromq-4.3.4.tar.gz
             tar -xzf zeromq-4.3.4.tar.gz
             cd zeromq-4.3.4
-            ./configure --prefix=/usr/local --enable-static --disable-shared CC=/usr/local/bin/gcc-10 CXX=/usr/local/bin/g++-10
+            ./configure --prefix=/usr/local --enable-static --disable-shared \
+              CC=/usr/local/bin/gcc-10 CXX=/usr/local/bin/g++-10 \
+              CFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS"
             make -j$(sysctl -n hw.ncpu)
             make install
             cd ..
@@ -69,7 +83,20 @@ jobs:
           echo "CMAKE_INCLUDE_PATH=/usr/local/include:$CMAKE_INCLUDE_PATH" >> $GITHUB_ENV
           echo "CMAKE_LIBRARY_PATH=/usr/local/lib:$CMAKE_LIBRARY_PATH" >> $GITHUB_ENV
 
-      - name: Install GCC 10
+      - name: Fallback to latest ZeroMQ if manual build fails
+        run: |
+          if [ ! -f /usr/local/include/zmq.hpp ]; then
+            brew uninstall zeromq@4.3.4 || true
+            brew install zeromq
+            brew unlink zeromq || true
+            brew link zeromq --force
+            ls -l /usr/local/include/zmq.hpp || true
+            ls -l /usr/local/lib/libzmq* || true
+            echo "ZMQ_INCLUDE_DIR=/usr/local/include" >> $GITHUB_ENV
+            echo "ZMQ_LIBRARY=/usr/local/lib/libzmq.a" >> $GITHUB_ENV
+          fi
+
+      - name: Install GCC 10 (redundant, kept for clarity)
         run: |
           brew install gcc@10
           echo "CC=/usr/local/bin/gcc-10" >> $GITHUB_ENV
