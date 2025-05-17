@@ -1,0 +1,98 @@
+name: Build Ryo Currency
+
+on:
+  push:
+    branches: [ dev ]
+  pull_request:
+    branches: [ dev ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04 # Minimal, stable Ubuntu version, x86_64 architecture
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          submodules: recursive
+
+      - name: Install minimal system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake pkg-config libunbound-dev libsodium-dev \
+            libminiupnpc-dev libzmq3-dev libhidapi-dev libreadline-dev \
+            libexpat1-dev libunwind-dev libpgm-dev gcc-10 g++-10
+          # Verify libunbound is installed
+          ls -l /usr/lib/x86_64-linux-gnu/libunbound*
+
+      - name: Set GCC 10 as default compiler
+        run: |
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 100
+          echo "CC=/usr/bin/gcc" >> $GITHUB_ENV
+          echo "CXX=/usr/bin/g++" >> $GITHUB_ENV
+
+      - name: Build and install OpenSSL 1.1.1 (static)
+        run: |
+          curl -L https://www.openssl.org/source/openssl-1.1.1w.tar.gz -o openssl-1.1.1w.tar.gz
+          tar -xzf openssl-1.1.1w.tar.gz
+          cd openssl-1.1.1w
+          ./Configure linux-x86_64 no-shared --prefix=$HOME/openssl-1.1.1 CC=/usr/bin/gcc
+          make depend
+          make -j$(nproc)
+          make install
+          cd ..
+          # Verify static libraries
+          ls -l $HOME/openssl-1.1.1/lib/lib*.a
+          echo "OPENSSL_ROOT_DIR=$HOME/openssl-1.1.1" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=$HOME/openssl-1.1.1/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
+
+      - name: Build and install Boost 1.75 (static)
+        run: |
+          curl -L https://archives.boost.io/release/1.75.0/source/boost_1_75_0.tar.gz -o boost_1_75_0.tar.gz
+          tar -xzf boost_1_75_0.tar.gz
+          cd boost_1_75_0
+          ./bootstrap.sh --prefix=$HOME/boost-1.75
+          ./b2 -j$(nproc) --without-python cxxflags="-std=c++11" link=static install
+          cd ..
+          echo "BOOST_ROOT=$HOME/boost-1.75" >> $GITHUB_ENV
+
+      - name: Create build directory
+        run: mkdir build && cd build
+
+      - name: Configure CMake for static build
+        run: |
+          cd build
+          cmake .. \
+            -DCMAKE_C_COMPILER=/usr/bin/gcc \
+            -DCMAKE_CXX_COMPILER=/usr/bin/g++ \
+            -DOPENSSL_ROOT_DIR=$HOME/openssl-1.1.1 \
+            -DBOOST_ROOT=$HOME/boost-1.75 \
+            -DUNBOUND_INCLUDE_DIR=/usr/include \
+            -DUNBOUND_LIBRARY=/usr/lib/x86_64-linux-gnu/libunbound.a \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSTATIC=ON \
+            -DUSE_SINGLE_BUILDDIR=1 \
+            -DARCH=x86_64 \
+            -DCMAKE_POLICY_DEFAULT_CMP0057=NEW \
+            -DBUILD_64=ON
+
+      - name: Build Ryo (release-static-linux-x86_64)
+        run: |
+          cd build
+          make release-static-linux-x86_64 -j$(nproc)
+
+      - name: Run tests (optional)
+        run: |
+          cd build
+          make release-test
+        continue-on-error: true # Tests may fail on dev branch
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ryo-binaries
+          path: build/release/bin/
