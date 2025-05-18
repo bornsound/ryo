@@ -29,7 +29,7 @@ jobs:
           brew uninstall gcc@10 || true
           brew install gcc@10
           brew install pkg-config unbound libsodium miniupnpc hidapi xz readline expat libunwind-headers libpgm doxygen graphviz
-          # Install ccache dependencies explicitly to avoid fetching newer versions
+          # Install ccache dependencies explicitly
           brew install blake3 fmt hiredis xxhash
           brew install ccache
           /usr/local/bin/gcc-10 --version
@@ -39,20 +39,25 @@ jobs:
           echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
           echo "READLINE_ROOT=/usr/local/opt/readline" >> $GITHUB_ENV
 
-      - name: Install CMake 3.31.6
+      - name: Install and pin CMake 3.31.6
         run: |
           brew uninstall cmake || true
-          # Install CMake 3.31.6 from source to pin exact version
-          curl -L https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6.tar.gz -o cmake-3.31.6.tar.gz
-          tar -xzf cmake-3.31.6.tar.gz
-          cd cmake-3.31.6
-          ./bootstrap
-          make -j$(sysctl -n hw.ncpu)
-          sudo make install
-          cd ..
+          # Try installing cmake@3.31.6
+          if brew install cmake@3.31.6; then
+            brew pin cmake@3.31.6
+          else
+            # Fall back to source build if cmake@3.31.6 is not available
+            curl -L https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6.tar.gz -o cmake-3.31.6.tar.gz
+            tar -xzf cmake-3.31.6.tar.gz
+            cd cmake-3.31.6
+            ./bootstrap
+            make -j$(sysctl -n hw.ncpu)
+            sudo make install
+            cd ..
+            rm -rf cmake-3.31.6 cmake-3.31.6.tar.gz
+          fi
           /usr/local/bin/cmake --version
-          rm -rf cmake-3.31.6 cmake-3.31.6.tar.gz
-          # Verify exact version
+          # Verify version
           if ! /usr/local/bin/cmake --version | grep -q "3.31.6"; then
             echo "CMake 3.31.6 not installed correctly"
             exit 1
@@ -140,7 +145,7 @@ jobs:
             -DCMAKE_C_STANDARD=11 \
             -DCMAKE_CXX_STANDARD=11 \
             -DCMAKE_CXX_FLAGS_INIT="-std=c++11" \
-            -DCMAKE_CXX_FLAGS="-std=c++11" \
+            -CMAKE_CXX_FLAGS="-std=c++11" \
             -DUNBOUND_INCLUDE_DIR=/usr/local/include \
             -DUNBOUND_LIBRARY=/usr/local/lib/libunbound.a \
             -DZMQ_INCLUDE_DIR=$ZMQ_INCLUDE_DIR \
@@ -149,8 +154,8 @@ jobs:
             -DReadline_INCLUDE_DIR=/usr/local/opt/readline/include \
             -DReadline_LIBRARY=/usr/local/opt/readline/lib/libreadline.a \
             -DBOOST_ROOT=$BOOST_ROOT \
-            -DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH \
-            -DCMAKE_BUILD_TYPE=Release \
+            -CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH \
+            -CMAKE_BUILD_TYPE=Release \
             -DSTATIC=ON \
             -DBoost_USE_STATIC_RUNTIME=ON \
             -DUSE_SINGLE_BUILDDIR=1 \
