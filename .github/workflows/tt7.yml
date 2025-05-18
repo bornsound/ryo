@@ -170,8 +170,7 @@ jobs:
             -DUSE_SINGLE_BUILDDIR=1 \
             -DARCH=x86_64 \
             -DCMAKE_POLICY_DEFAULT_CMP0057=NEW \
-            -DBUILD_64=ON \
-            -CMAKE_VERBOSE_MAKEFILE=ON
+            -DBUILD_64=ON
 
       - name: Build Ryo (release-static-mac-x86_64)
         run: |
