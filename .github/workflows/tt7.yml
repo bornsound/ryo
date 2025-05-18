@@ -140,42 +140,12 @@ jobs:
         run: |
           mkdir build && cd build
 
-      - name: Configure CMake for static build
-        run: |
-          cd build
-          rm -rf CMakeCache.txt CMakeFiles
-          /usr/local/bin/cmake .. \
-            -DCMAKE_C_COMPILER=/usr/local/bin/gcc-10 \
-            -DCMAKE_CXX_COMPILER=/usr/local/bin/g++-10 \
-            -DCMAKE_C_STANDARD=11 \
-            -DCMAKE_CXX_STANDARD=11 \
-            -DCMAKE_CXX_FLAGS_INIT="-std=c++11" \
-            -DCMAKE_CXX_FLAGS="-std=c++11" \
-            -DUNBOUND_INCLUDE_DIR=/usr/local/include \
-            -DUNBOUND_LIBRARY=/usr/local/lib/libunbound.a \
-            -DZMQ_INCLUDE_DIR=$ZMQ_INCLUDE_DIR \
-            -DZMQ_LIBRARY=$ZMQ_LIBRARY \
-            -DREADLINE_ROOT=$READLINE_ROOT \
-            -DReadline_INCLUDE_DIR=/usr/local/opt/readline/include \
-            -DReadline_LIBRARY=/usr/local/opt/readline/lib/libreadline.a \
-            -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR \
-            -DOPENSSL_INCLUDE_DIR=/usr/local/openssl-1.1.1/include \
-            -DOPENSSL_CRYPTO_LIBRARY=/usr/local/openssl-1.1.1/lib/libcrypto.a \
-            -DOPENSSL_SSL_LIBRARY=/usr/local/openssl-1.1.1/lib/libssl.a \
-            -DBOOST_ROOT=$BOOST_ROOT \
-            -DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DSTATIC=ON \
-            -DBoost_USE_STATIC_RUNTIME=ON \
-            -DUSE_SINGLE_BUILDDIR=1 \
-            -DARCH=x86_64 \
-            -DCMAKE_POLICY_DEFAULT_CMP0057=NEW \
-            -DBUILD_64=ON
+
 
       - name: Build Ryo (release-static-mac-x86_64)
         run: |
           cd build
-          make release-static-mac-x86_64 -j$(sysctl -n hw.ncpu)
+          make release-static-mac-x86_64
 
       - name: Run tests (optional)
         run: |
