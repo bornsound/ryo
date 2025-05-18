@@ -144,6 +144,7 @@ jobs:
         run: |
           cd build
           rm -rf CMakeCache.txt CMakeFiles
+          export CXXFLAGS="-march=x86-64"
           /usr/local/bin/cmake .. \
             -DCMAKE_C_COMPILER=/usr/local/bin/gcc-10 \
             -DCMAKE_CXX_COMPILER=/usr/local/bin/g++-10 \
