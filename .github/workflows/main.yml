@@ -28,14 +28,35 @@ jobs:
         run: |
           brew uninstall gcc@10 || true
           brew install gcc@10
-          brew install cmake pkg-config unbound libsodium miniupnpc hidapi xz readline expat libunwind-headers libpgm doxygen graphviz ccache
+          brew install pkg-config unbound libsodium miniupnpc hidapi xz readline expat libunwind-headers libpgm doxygen graphviz
+          # Install ccache dependencies explicitly to avoid fetching newer versions
+          brew install blake3 fmt hiredis xxhash
+          brew install ccache
           /usr/local/bin/gcc-10 --version
-          cmake --version
           ls -l /usr/local/lib/libunbound*
           ls -l /usr/local/opt/readline/include/readline/readline.h || true
           ls -l /usr/local/opt/readline/lib/libreadline.a || true
           echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
           echo "READLINE_ROOT=/usr/local/opt/readline" >> $GITHUB_ENV
+
+      - name: Install CMake 3.31.6
+        run: |
+          brew uninstall cmake || true
+          # Install CMake 3.31.6 from source to pin exact version
+          curl -L https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6.tar.gz -o cmake-3.31.6.tar.gz
+          tar -xzf cmake-3.31.6.tar.gz
+          cd cmake-3.31.6
+          ./bootstrap
+          make -j$(sysctl -n hw.ncpu)
+          sudo make install
+          cd ..
+          /usr/local/bin/cmake --version
+          rm -rf cmake-3.31.6 cmake-3.31.6.tar.gz
+          # Verify exact version
+          if ! /usr/local/bin/cmake --version | grep -q "3.31.6"; then
+            echo "CMake 3.31.6 not installed correctly"
+            exit 1
+          fi
 
       - name: Verify compiler C++11 support
         run: |
@@ -44,6 +65,7 @@ jobs:
           /usr/local/bin/g++-10 -std=c++14 -o test test.cpp
           ./test
           /usr/local/bin/g++-10 --version
+          /usr/local/bin/g++-10 -print-file-name=libstdc++.so
           rm test.cpp test
 
       - name: Build and install ZeroMQ 4.3.5 (static)
@@ -102,10 +124,7 @@ jobs:
           fi
           ls -l /usr/local/opt/boost/lib/libboost*.a || true
 
-      - name: Fix src/rpc/CMakeLists.txt syntax
-        run: |
-          sed -i '' 's/set(rpc_sources.*)/set(rpc_sources core_rpc_server.cpp)/' src/rpc/CMakeLists.txt
-          cat -n src/rpc/CMakeLists.txt || true
+
 
       - name: Create build directory
         run: |
@@ -115,7 +134,7 @@ jobs:
         run: |
           cd build
           rm -rf CMakeCache.txt CMakeFiles # Clear cache
-          cmake .. \
+          /usr/local/bin/cmake .. \
             -DCMAKE_C_COMPILER=/usr/local/bin/gcc-10 \
             -DCMAKE_CXX_COMPILER=/usr/local/bin/g++-10 \
             -DCMAKE_C_STANDARD=11 \
@@ -138,7 +157,7 @@ jobs:
             -DARCH=x86_64 \
             -DCMAKE_POLICY_DEFAULT_CMP0057=NEW \
             -DBUILD_64=ON \
-            -DCMAKE_VERBOSE_MAKEFILE=ON
+            -CMAKE_VERBOSE_MAKEFILE=ON
 
       - name: Build Ryo (release-static-mac-x86_64)
         run: |
