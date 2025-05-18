@@ -168,7 +168,7 @@ jobs:
             -DSTATIC=ON \
             -DBoost_USE_STATIC_RUNTIME=ON \
             -DUSE_SINGLE_BUILDDIR=1 \
-            -DARCH=x86_64 \
+            -DARCH=x86-64 \
             -DCMAKE_POLICY_DEFAULT_CMP0057=NEW \
             -DBUILD_64=ON
 
