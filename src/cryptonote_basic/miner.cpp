@@ -65,6 +65,7 @@
 #include <sstream>
 
 #ifdef __APPLE__
+#include <dispatch/dispatch.h>
 #include <AvailabilityMacros.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/ps/IOPSKeys.h>
