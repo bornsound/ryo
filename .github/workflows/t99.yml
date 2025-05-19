@@ -147,13 +147,7 @@ jobs:
           echo "SDK_PATH=$SDK_PATH" >> $GITHUB_ENV
           echo "::set-output name=path::$SDK_PATH"
 
-      - name: Verify libdispatch availability
-        run: |
-          echo "#include <dispatch/dispatch.h>" > test_dispatch.cpp
-          echo "int main() { dispatch_queue_t queue = dispatch_queue_create(\"test\", NULL); return 0; }" >> test_dispatch.cpp
-          /usr/local/bin/g++-10 -std=gnu++14 -isysroot $SDK_PATH -framework CoreFoundation -framework IOKit -ldispatch -o test_dispatch test_dispatch.cpp
-          ./test_dispatch
-          rm test_dispatch.cpp test_dispatch
+
 
       - name: Configure CMake for static build with gcc-10 and SDK 12
         run: |
@@ -165,6 +159,7 @@ jobs:
           export CFLAGS="-mmacosx-version-min=12.0 -isysroot $SDK_PATH -march=x86-64"
           export CXXFLAGS="-mmacosx-version-min=12.0 -isysroot $SDK_PATH -march=x86-64 -std=gnu++14"
           /usr/local/bin/cmake .. \
+            -DCMAKE_EXE_LINKER_FLAGS="-ldispatch"
             -DCMAKE_C_COMPILER=$CC \
             -DCMAKE_CXX_COMPILER=$CXX \
             -DCMAKE_C_STANDARD=11 \
