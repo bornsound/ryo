@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-13 # macOS Ventura, x86_64 architecture
+    runs-on: macos-13
 
     steps:
       - name: Checkout repository
@@ -31,16 +31,12 @@ jobs:
           brew install pkg-config unbound libsodium miniupnpc hidapi xz readline expat libunwind-headers libpgm doxygen graphviz
           brew install blake3 fmt hiredis xxhash
           brew install ccache
-          /usr/local/bin/gcc-10 --version
-          ls -l /usr/local/lib/libunbound*
-          ls -l /usr/local/opt/readline/include/readline/readline.h || true
-          ls -l /usr/local/opt/readline/lib/libreadline.a || true
           echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
           echo "READLINE_ROOT=/usr/local/opt/readline" >> $GITHUB_ENV
 
       - name: Install OpenSSL 1.1.1
         run: |
-          curl -L https://www.openssl.org/source/openssl-1.1.1w.tar.gz -o openssl-1.1.1w.tar.gz
+          curl -LO https://www.openssl.org/source/openssl-1.1.1w.tar.gz
           tar -xzf openssl-1.1.1w.tar.gz
           cd openssl-1.1.1w
           ./config --prefix=/usr/local/openssl-1.1.1 --openssldir=/usr/local/openssl-1.1.1 no-shared
@@ -49,24 +45,20 @@ jobs:
           cd ..
           echo "OPENSSL_ROOT_DIR=/usr/local/openssl-1.1.1" >> $GITHUB_ENV
           echo "CMAKE_PREFIX_PATH=/usr/local/openssl-1.1.1:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
-          rm -rf openssl-1.1.1w openssl-1.1.1w.tar.gz
+          rm -rf openssl-1.1.1w*
 
       - name: Install CMake 3.31.6
         run: |
           brew uninstall cmake || true
-          curl -L https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6.tar.gz -o cmake-3.31.6.tar.gz
+          curl -LO https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6.tar.gz
           tar -xzf cmake-3.31.6.tar.gz
           cd cmake-3.31.6
           ./bootstrap
           make -j$(sysctl -n hw.ncpu)
           sudo make install
           cd ..
-          /usr/local/bin/cmake --version
-          rm -rf cmake-3.31.6 cmake-3.31.6.tar.gz
-          if ! /usr/local/bin/cmake --version | grep -q "3.31.6"; then
-            echo "CMake 3.31.6 not installed correctly"
-            exit 1
-          fi
+          rm -rf cmake-3.31.6*
+          cmake --version
 
       - name: Verify compiler C++14 support
         run: |
@@ -78,12 +70,10 @@ jobs:
 
       - name: Build and install ZeroMQ 4.3.5 (static)
         run: |
-          curl -L https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz -o zeromq-4.3.5.tar.gz
+          curl -LO https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz
           tar -xzf zeromq-4.3.5.tar.gz
           cd zeromq-4.3.5
-          if grep -q "#define CLOCK_REALTIME" src/clock.hpp; then
-            sed -i '' '/#define CLOCK_REALTIME 0/d' src/clock.hpp
-          fi
+          sed -i '' '/#define CLOCK_REALTIME 0/d' src/clock.hpp || true
           ./configure --prefix=/usr/local --enable-static --disable-shared --disable-tipc \
             CC=/usr/local/bin/gcc-10 CXX=/usr/local/bin/g++-10 \
             CFLAGS="-Wno-error -Wno-error=packed-not-aligned" \
@@ -91,38 +81,39 @@ jobs:
           make -j$(sysctl -n hw.ncpu)
           sudo make install
           cd ..
-          rm -rf zeromq-4.3.5 zeromq-4.3.5.tar.gz
+          rm -rf zeromq-4.3.5*
 
       - name: Install cppzmq
         run: |
-          git clone https://github.com/zeromq/cppzmq.git
-          cd cppzmq
-          git checkout v4.9.0
-          sudo cp zmq.hpp /usr/local/include/
-          cd ..
+          git clone --depth 1 --branch v4.9.0 https://github.com/zeromq/cppzmq.git
+          sudo cp cppzmq/zmq.hpp /usr/local/include/
           rm -rf cppzmq
           echo "ZMQ_INCLUDE_DIR=/usr/local/include" >> $GITHUB_ENV
           echo "ZMQ_LIBRARY=/usr/local/lib/libzmq.a" >> $GITHUB_ENV
-          echo "CMAKE_INCLUDE_PATH=/usr/local/include:$CMAKE_INCLUDE_PATH" >> $GITHUB_ENV
-          echo "CMAKE_LIBRARY_PATH=/usr/local/lib:$CMAKE_LIBRARY_PATH" >> $GITHUB_ENV
 
       - name: Build and install Boost 1.75 (static)
         run: |
-          curl -L https://archives.boost.io/release/1.75.0/source/boost_1_75_0.tar.gz -o boost_1_75_0.tar.gz
+          curl -LO https://archives.boost.io/release/1.75.0/source/boost_1_75_0.tar.gz
           tar -xzf boost_1_75_0.tar.gz
           cd boost_1_75_0
-          ./bootstrap.sh --prefix=$HOME/boost-1.75 --with-toolset=clang
-          ./b2 -j$(sysctl -n hw.ncpu) --without-python cxxflags="-std=gnu++14" link=static runtime-link=static toolset=clang install
+          ./bootstrap.sh --prefix=$HOME/boost-1.75
+          ./b2 -j$(sysctl -n hw.ncpu) --without-python \
+            cxxflags="-std=gnu++14" link=static runtime-link=static \
+            variant=release threading=multi install
           cd ..
-          rm -rf boost_1_75_0 boost_1_75_0.tar.gz
+          rm -rf boost_1_75_0*
           echo "BOOST_ROOT=$HOME/boost-1.75" >> $GITHUB_ENV
+          echo "BOOST_INCLUDEDIR=$HOME/boost-1.75/include" >> $GITHUB_ENV
+          echo "BOOST_LIBRARYDIR=$HOME/boost-1.75/lib" >> $GITHUB_ENV
           echo "CMAKE_PREFIX_PATH=$HOME/boost-1.75:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
 
       - name: Fallback to Homebrew Boost
         run: |
-          if [ ! -f $HOME/boost-1.75/lib/libboost_system.a ]; then
+          if [ ! -f "$HOME/boost-1.75/lib/libboost_system.a" ]; then
             brew install boost
             echo "BOOST_ROOT=/usr/local/opt/boost" >> $GITHUB_ENV
+            echo "BOOST_INCLUDEDIR=/usr/local/opt/boost/include" >> $GITHUB_ENV
+            echo "BOOST_LIBRARYDIR=/usr/local/opt/boost/lib" >> $GITHUB_ENV
             echo "CMAKE_PREFIX_PATH=/usr/local/opt/boost:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
           fi
 
@@ -131,35 +122,27 @@ jobs:
 
       - name: Download and install macOS 12.3 SDK
         run: |
-          curl -L -o MacOSX12.3.sdk.tar.xz https://github.com/alexey-lysiuk/macos-sdk/releases/download/12.3/MacOSX12.3.tar.xz
-          sudo tar -xf MacOSX12.3.sdk.tar.xz -C /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/
-          ls -l /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/
+          curl -LO https://github.com/alexey-lysiuk/macos-sdk/releases/download/12.3/MacOSX12.3.tar.xz
+          sudo tar -xf MacOSX12.3.tar.xz -C /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/
+          rm MacOSX12.3.tar.xz
 
       - name: Detect macOS 12 SDK path
         id: sdkpath
         run: |
           SDK_PATH=$(xcode-select -p)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.3.sdk
-          if [ ! -d "$SDK_PATH" ]; then
-            echo "SDK path $SDK_PATH does not exist, listing SDKs:"
-            ls $(xcode-select -p)/Platforms/MacOSX.platform/Developer/SDKs/
-            exit 1
-          fi
           echo "SDK_PATH=$SDK_PATH" >> $GITHUB_ENV
           echo "::set-output name=path::$SDK_PATH"
 
-
-
-      - name: Configure CMake for static build with gcc-10 and SDK 12
+      - name: Configure CMake for static build
         run: |
-          echo "Using SDK path: $SDK_PATH"
-          mkdir -p build
-          cd build
+          rm -rf build/*
+          mkdir -p build && cd build
           export CC=/usr/local/bin/gcc-10
           export CXX=/usr/local/bin/g++-10
+          export SDK_PATH=$(xcode-select -p)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.3.sdk
           export CFLAGS="-mmacosx-version-min=12.0 -isysroot $SDK_PATH -march=x86-64"
           export CXXFLAGS="-mmacosx-version-min=12.0 -isysroot $SDK_PATH -march=x86-64 -std=gnu++14"
-          /usr/local/bin/cmake .. \
-            -DCMAKE_EXE_LINKER_FLAGS="-ldispatch"
+          cmake .. \
             -DCMAKE_C_COMPILER=$CC \
             -DCMAKE_CXX_COMPILER=$CXX \
             -DCMAKE_C_STANDARD=11 \
@@ -175,19 +158,21 @@ jobs:
             -DReadline_INCLUDE_DIR=/usr/local/opt/readline/include \
             -DReadline_LIBRARY=/usr/local/opt/readline/lib/libreadline.a \
             -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR \
-            -DOPENSSL_INCLUDE_DIR=/usr/local/openssl-1.1.1/include \
-            -DOPENSSL_CRYPTO_LIBRARY=/usr/local/openssl-1.1.1/lib/libcrypto.a \
-            -DOPENSSL_SSL_LIBRARY=/usr/local/openssl-1.1.1/lib/libssl.a \
+            -DOPENSSL_INCLUDE_DIR=$OPENSSL_ROOT_DIR/include \
+            -DOPENSSL_CRYPTO_LIBRARY=$OPENSSL_ROOT_DIR/lib/libcrypto.a \
+            -DOPENSSL_SSL_LIBRARY=$OPENSSL_ROOT_DIR/lib/libssl.a \
             -DBOOST_ROOT=$BOOST_ROOT \
+            -DBOOST_INCLUDEDIR=$BOOST_INCLUDEDIR \
+            -DBOOST_LIBRARYDIR=$BOOST_LIBRARYDIR \
             -DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH \
             -DBoost_USE_STATIC_LIBS=ON \
+            -DBoost_USE_STATIC_RUNTIME=ON \
             -DCMAKE_BUILD_TYPE=Release \
             -DSTATIC=ON \
-            -DBoost_USE_STATIC_RUNTIME=ON \
             -DUSE_SINGLE_BUILDDIR=1 \
             -DARCH=x86-64 \
-            -DCMAKE_POLICY_DEFAULT_CMP0057=NEW \
             -DBUILD_64=ON \
+            -DCMAKE_POLICY_DEFAULT_CMP0057=NEW \
             -DCMAKE_EXE_LINKER_FLAGS="-framework CoreFoundation -framework IOKit -ldispatch"
 
       - name: Build Ryo (release-static-mac-x86_64)
@@ -212,8 +197,5 @@ jobs:
         run: |
           cat build/CMakeFiles/CMakeOutput.log || true
           cat build/CMakeFiles/CMakeError.log || true
-          find build -name "CMake*.log" -exec cat {} \;
           /usr/local/bin/g++-10 --version
           /usr/local/bin/g++-10 -v
-          ls -l $SDK_PATH/System/Library/Frameworks
-          grep -r "dispatch_queue_t" src/ || true
