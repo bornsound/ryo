@@ -65,15 +65,22 @@
 #include <sstream>
 
 #ifdef __APPLE__
-#include <dispatch/dispatch.h>
 #include <AvailabilityMacros.h>
+#include <TargetConditionals.h>
+
 #include <IOKit/IOKitLib.h>
 #include <IOKit/ps/IOPSKeys.h>
 #include <IOKit/ps/IOPowerSources.h>
-#include <TargetConditionals.h>
+
 #include <mach/mach_host.h>
 #include <sys/times.h>
+
+// Grand Central Dispatch support
+extern "C" {
+#include <dispatch/dispatch.h>
+}
 #endif
+
 
 #ifdef __FreeBSD__
 #include <devstat.h>
