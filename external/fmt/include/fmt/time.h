@@ -8,96 +8,105 @@
 #ifndef FMT_TIME_H_
 #define FMT_TIME_H_
 
-#include "format.h"
 #include <ctime>
+#include "format.h" // Ensure fmt/format.h is included for core fmt functionality
 
 FMT_BEGIN_NAMESPACE
 
 namespace internal {
-// Use nullptr instead of null<> and FMT_NULL
-inline std::tm* localtime_r(const std::time_t* time, std::tm* tm) { return std::localtime_r(time, tm); }
-inline std::tm* localtime_s(std::tm* tm, const std::time_t* time) { return std::localtime(time); } // Fallback
-inline std::tm* gmtime_r(const std::time_t* time, std::tm* tm) { return std::gmtime_r(time, tm); }
-inline std::tm* gmtime_s(std::tm* tm, const std::time_t* time) { return std::gmtime(time); } // Fallback
+// Thread-safe replacements for localtime_r, gmtime_r, etc.
+inline std::tm* localtime_r(const std::time_t* time, std::tm* tm) {
+  return ::localtime_r(time, tm); // POSIX localtime_r
+}
 
-// Dummy iterator for null_terminating_iterator
+inline std::tm* gmtime_r(const std::time_t* time, std::tm* tm) {
+  return ::gmtime_r(time, tm); // POSIX gmtime_r
+}
+
+// Fallbacks for platforms without localtime_r/gmtime_r (e.g., Windows)
+inline std::tm* localtime_s(std::tm* tm, const std::time_t* time) {
+  std::tm* result = std::localtime(time);
+  if (result) *tm = *result;
+  return result;
+}
+
+inline std::tm* gmtime_s(std::tm* tm, const std::time_t* time) {
+  std::tm* result = std::gmtime(time);
+  if (result) *tm = *result;
+  return result;
+}
+
+// Simple null_terminating_iterator to handle format string parsing
 template <typename Char>
-using null_terminating_iterator = Char*;
+class null_terminating_iterator {
+ public:
+  using iterator_category = std::input_iterator_tag;
+  using value_type = Char;
+  using difference_type = std::ptrdiff_t;
+  using pointer = const Char*;
+  using reference = const Char&;
 
-// Dummy pointer_from
+  explicit null_terminating_iterator(const Char* begin) : ptr_(begin) {}
+
+  reference operator*() const { return *ptr_; }
+  pointer operator->() const { return ptr_; }
+
+  null_terminating_iterator& operator++() {
+    ++ptr_;
+    return *this;
+  }
+
+  null_terminating_iterator operator++(int) {
+    null_terminating_iterator tmp = *this;
+    ++ptr_;
+    return tmp;
+  }
+
+  bool operator==(const null_terminating_iterator& other) const {
+    return ptr_ == other.ptr_;
+  }
+
+  bool operator!=(const null_terminating_iterator& other) const {
+    return ptr_ != other.ptr_;
+  }
+
+ private:
+  const Char* ptr_;
+};
+
+// Dummy pointer_from for compatibility
 template <typename T>
 T* pointer_from(T* p) { return p; }
 }
 
 // Thread-safe replacement for std::localtime
 inline std::tm localtime(std::time_t time) {
-  struct dispatcher {
-    std::time_t time_;
-    std::tm tm_;
-
-    dispatcher(std::time_t t) : time_(t) {}
-
-    bool run() {
-      using namespace fmt::internal;
-      return handle(localtime_r(&time_, &tm_));
-    }
-
-    bool handle(std::tm* tm) { return tm != nullptr; }
-
-    bool handle(std::tm*) {
-      using namespace fmt::internal;
-      return fallback(localtime_s(&tm_, &time_));
-    }
-
-    bool fallback(std::tm* tm) { return tm != nullptr; }
-
-    bool fallback(std::tm*) {
-      std::tm* tm = std::localtime(&time_);
-      if (tm) tm_ = *tm;
-      return tm != nullptr;
-    }
-  };
-  dispatcher lt(time);
-  if (lt.run())
-    return lt.tm_;
-  FMT_THROW(format_error("time_t value out of range"));
+  std::tm tm = {};
+  std::tm* result = internal::localtime_r(&time, &tm);
+  if (!result) {
+    result = internal::localtime_s(&tm, &time);
+  }
+  if (!result) {
+    FMT_THROW(format_error("localtime failed: time_t value out of range"));
+  }
+  return tm;
 }
 
 // Thread-safe replacement for std::gmtime
 inline std::tm gmtime(std::time_t time) {
-  struct dispatcher {
-    std::time_t time_;
-    std::tm tm_;
-
-    dispatcher(std::time_t t) : time_(t) {}
-
-    bool run() {
-      using namespace fmt::internal;
-      return handle(gmtime_r(&time_, &tm_));
-    }
-
-    bool handle(std::tm* tm) { return tm != nullptr; }
-
-    bool handle(std::tm*) {
-      using namespace fmt::internal;
-      return fallback(gmtime_s(&tm_, &time_));
-    }
-
-    bool fallback(std::tm* tm) { return tm != nullptr; }
-
-    bool fallback(std::tm*) {
-      std::tm* tm = std::gmtime(&time_);
-      if (tm) tm_ = *tm;
-      return tm != nullptr;
-    }
-  };
-  dispatcher gt(time);
-  if (gt.run())
-    return gt.tm_;
-  FMT_THROW(format_error("time_t value out of range"));
+  std::tm tm = {};
+  std::tm* result = internal::gmtime_r(&time, &tm);
+  if (!result) {
+    result = internal::gmtime_s(&tm, &time);
+  }
+  if (!result) {
+    FMT_THROW(format_error("gmtime failed: time_t value out of range"));
+  }
+  return tm;
 }
 
 namespace internal {
+// strftime wrappers for char and wchar_t
 inline std::size_t strftime(char* str, std::size_t count, const char* format,
                             const std::tm* time) {
   return std::strftime(str, count, format, time);
@@ -109,35 +118,32 @@ inline std::size_t strftime(wchar_t* str, std::size_t count,
 }
 }
 
+// Formatter for std::tm
 template <typename Char>
 struct formatter<std::tm, Char> {
-  template <typical ParseContext>
+  template <typename ParseContext>
   auto parse(ParseContext& ctx) -> decltype(ctx.begin()) {
-    auto it = internal::null_terminating_iterator<Char>(ctx.begin());
-    if (*it == ':')
-      ++it;
-    auto end = it;
-    while (*end && *end != '}')
-      ++end;
+    auto it = ctx.begin();
+    auto end = ctx.end();
+    if (it != end && *it == ':') ++it;
     tm_format.reserve(end - it + 1);
-    tm_format.append(it, end);
+    while (it != end && *it != '}') {
+      tm_format.push_back(*it++);
+    }
     tm_format.push_back('\0');
-    return end;
+    return it;
   }
 
   template <typename FormatContext>
   auto format(const std::tm& tm, FormatContext& ctx) -> decltype(ctx.out()) {
-    internal::basic_buffer<Char>& buf = internal::get_container(ctx.out());
+    basic_buffer<Char>& buf = get_container(ctx.out());
     std::size_t start = buf.size();
     for (;;) {
       std::size_t size = buf.capacity() - start;
       std::size_t count =
-        internal::strftime(&buf[start], size, &tm_format[0], &tm);
+          internal::strftime(&buf[start], size, &tm_format[0], &tm);
       if (count != 0) {
         buf.resize(start + count);
-        break;
-      }
-      if (size >= tm_format.size() * 256) {
         break;
       }
       const std::size_t MIN_GROWTH = 10;
@@ -146,6 +152,7 @@ struct formatter<std::tm, Char> {
     return ctx.out();
   }
 
+ private:
   basic_memory_buffer<Char> tm_format;
 };
 
