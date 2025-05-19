@@ -24,16 +24,13 @@ jobs:
           sudo xcode-select --reset
           xcode-select --print-path
 
-      - name: Install Homebrew dependencies
+      - name: Update Homebrew and install dependencies
         run: |
           brew update
-          brew uninstall gcc@9 || true
-          brew install --build-from-source gcc@9
+          brew upgrade
           brew install pkg-config unbound libsodium miniupnpc hidapi xz readline expat libunwind-headers libpgm doxygen graphviz
           brew install blake3 fmt hiredis xxhash
-          brew install ccache
-          /usr/local/bin/gcc-9 --version
-          /usr/local/bin/g++-9 -print-file-name=libstdc++.dylib
+          brew install ccache gmp mpfr libmpc
           ls -l /usr/local/lib/libunbound*
           ls -l /usr/local/opt/readline/include/readline/readline.h || true
           ls -l /usr/local/opt/readline/lib/libreadline.a || true
@@ -43,6 +40,24 @@ jobs:
           echo "CXX=/usr/local/bin/g++-9" >> $GITHUB_ENV
           echo "CFLAGS=-macos_version_min 13.0" >> $GITHUB_ENV
           echo "CXXFLAGS=-macos_version_min 13.0 -std=c++11" >> $GITHUB_ENV
+
+      - name: Install GCC 9.5.0 from source
+        run: |
+          curl -L https://ftp.gnu.org/gnu/gcc/gcc-9.5.0/gcc-9.5.0.tar.gz -o gcc-9.5.0.tar.gz
+          tar -xzf gcc-9.5.0.tar.gz
+          cd gcc-9.5.0
+          ./contrib/download_prerequisites
+          mkdir build && cd build
+          ../configure --prefix=/usr/local --enable-languages=c,c++ --disable-multilib \
+            --with-gmp=/usr/local --with-mpfr=/usr/local --with-mpc=/usr/local \
+            --disable-shared --enable-static
+          make -j$(sysctl -n hw.ncpu)
+          sudo make install
+          cd ../..
+          /usr/local/bin/gcc-9 --version
+          /usr/local/bin/g++-9 -print-file-name=libstdc++.dylib
+          ls -l /usr/local/lib/libgcc* || true
+          rm -rf gcc-9.5.0 gcc-9.5.0.tar.gz
 
       - name: Install OpenSSL 1.1.1
         run: |
