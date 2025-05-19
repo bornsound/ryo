@@ -139,7 +139,8 @@ jobs:
 
       - name: Build Ryo (release-static-mac-x86_64)
         run: |
-          
+          export CC=/usr/local/bin/gcc-10
+          export CXX=/usr/local/bin/g++-10
           make release-static-mac-x86_64
 
       - name: Upload artifacts
