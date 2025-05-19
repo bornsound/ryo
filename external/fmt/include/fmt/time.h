@@ -111,7 +111,7 @@ struct formatter<std::tm, Char> {
 #define FMT_NULL_TERMINATING_ITERATOR_DEFINED
     // If null_terminating_iterator is defined elsewhere, this prevents duplicate definitions
 #endif
-    auto it = internal::null_terminating_iterator<Char>(ctx);
+    auto it = internal::null_terminating_iterator<Char>(ctx.begin(), ctx.end());
     if (*it == ':')
       ++it;
     auto end = it;
