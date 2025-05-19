@@ -10,6 +10,7 @@ on:
 jobs:
   build:
     runs-on: macos-13 # macOS Ventura, x86_64 architecture
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
@@ -30,34 +31,31 @@ jobs:
           brew upgrade
           brew install pkg-config unbound libsodium miniupnpc hidapi xz readline expat libunwind-headers libpgm doxygen graphviz
           brew install blake3 fmt hiredis xxhash
-          brew install ccache gmp mpfr libmpc
+          brew install ccache
           ls -l /usr/local/lib/libunbound*
           ls -l /usr/local/opt/readline/include/readline/readline.h || true
           ls -l /usr/local/opt/readline/lib/libreadline.a || true
           echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
           echo "READLINE_ROOT=/usr/local/opt/readline" >> $GITHUB_ENV
-          echo "CC=/usr/local/bin/gcc-9" >> $GITHUB_ENV
-          echo "CXX=/usr/local/bin/g++-9" >> $GITHUB_ENV
           echo "CFLAGS=-macos_version_min 13.0" >> $GITHUB_ENV
           echo "CXXFLAGS=-macos_version_min 13.0 -std=c++11" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
 
-      - name: Install GCC 9.5.0 from source
+      - name: Install GCC 9 via Homebrew
         run: |
-          curl -L https://ftp.gnu.org/gnu/gcc/gcc-9.5.0/gcc-9.5.0.tar.gz -o gcc-9.5.0.tar.gz
-          tar -xzf gcc-9.5.0.tar.gz
-          cd gcc-9.5.0
-          ./contrib/download_prerequisites
-          mkdir build && cd build
-          ../configure --prefix=/usr/local --enable-languages=c,c++ --disable-multilib \
-            --with-gmp=/usr/local --with-mpfr=/usr/local --with-mpc=/usr/local \
-            --disable-shared --enable-static
-          make -j$(sysctl -n hw.ncpu)
-          sudo make install
-          cd ../..
-          /usr/local/bin/gcc-9 --version
-          /usr/local/bin/g++-9 -print-file-name=libstdc++.dylib
-          ls -l /usr/local/lib/libgcc* || true
-          rm -rf gcc-9.5.0 gcc-9.5.0.tar.gz
+          brew uninstall gcc@9 || true
+          HOMEBREW_NO_INSTALL_FROM_API=1 brew install gcc@9 || echo "GCC 9 installation failed, will try Clang fallback"
+          if [ -f /usr/local/bin/gcc-9 ]; then
+            /usr/local/bin/gcc-9 --version
+            /usr/local/bin/g++-9 -print-file-name=libstdc++.dylib
+            ls -l /usr/local/Cellar/gcc@9/*/lib/gcc/9/libgcc* || true
+            echo "CC=/usr/local/bin/gcc-9" >> $GITHUB_ENV
+            echo "CXX=/usr/local/bin/g++-9" >> $GITHUB_ENV
+          else
+            echo "Falling back to Clang"
+            echo "CC=clang" >> $GITHUB_ENV
+            echo "CXX=clang++" >> $GITHUB_ENV
+          fi
 
       - name: Install OpenSSL 1.1.1
         run: |
@@ -100,7 +98,7 @@ jobs:
             sed -i '' '/#define CLOCK_REALTIME 0/d' src/clock.hpp
           fi
           ./configure --prefix=/usr/local --enable-static --disable-shared --disable-tipc \
-            CC=/usr/local/bin/gcc-9 CXX=/usr/local/bin/g++-9 \
+            CC="${CC}" CXX="${CXX}" \
             CFLAGS="-Wno-error -Wno-error=packed-not-aligned -macos_version_min 13.0" \
             CXXFLAGS="-std=c++11 -Wno-error -Wno-error=packed-not-aligned -macos_version_min 13.0" \
             LDFLAGS=""
