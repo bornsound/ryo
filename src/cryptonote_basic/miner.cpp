@@ -65,10 +65,6 @@
 #include <sstream>
 
 #ifdef __APPLE__
-#include <dispatch/dispatch.h> // Added to define GCD types
-#ifndef dispatch_queue_t
-#define dispatch_queue_t dispatch_queue_s // Workaround for dispatch_queue_t errors
-#endif
 #include <AvailabilityMacros.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/ps/IOPSKeys.h>
