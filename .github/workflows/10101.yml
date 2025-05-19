@@ -1,4 +1,4 @@
-name: Build Ryo Currency with AppleClang 11
+name: Build Ryo Currency with AppleClang 13 (Xcode 13.2)
 
 on:
   push:
@@ -10,8 +10,6 @@ on:
 jobs:
   build:
     runs-on: macos-13
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_11.7.app/Contents/Developer
 
     steps:
       - name: Checkout repository
@@ -20,14 +18,15 @@ jobs:
           ref: dev1
           submodules: recursive
 
+      - name: Set up Xcode 13.2 (AppleClang 13)
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '13.2'
 
-
-      - name: Install Xcode Command Line Tools
+      - name: Print compiler version
         run: |
-          sudo xcode-select --install || true
-          sudo xcode-select --reset
-          xcode-select --print-path
           clang --version
+          clang++ --version
 
       - name: Install Homebrew dependencies
         run: |
