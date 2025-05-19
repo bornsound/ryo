@@ -65,14 +65,13 @@
 #include <sstream>
 
 #ifdef __APPLE__
-#include <dispatch/dispatch.h>      // Core GCD types and APIs
-#include <AvailabilityMacros.h>    // macOS availability macros
-#include <TargetConditionals.h>    // Target OS macros
-#include <IOKit/IOKitLib.h>         // IOKit APIs
-#include <IOKit/ps/IOPSKeys.h>      // Power source keys
-#include <IOKit/ps/IOPowerSources.h>// Power source APIs
-#include <mach/mach_host.h>         // Mach system APIs
-#include <sys/times.h>              // System timing functions
+#include <AvailabilityMacros.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/ps/IOPSKeys.h>
+#include <IOKit/ps/IOPowerSources.h>
+#include <TargetConditionals.h>
+#include <mach/mach_host.h>
+#include <sys/times.h>
 #endif
 
 
