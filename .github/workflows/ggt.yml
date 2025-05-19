@@ -50,18 +50,6 @@ jobs:
           cd ..
           rm -rf openssl-1.1.1w*
 
-      - name: Build and install ZeroMQ 4.3.5 (static)
-        run: |
-          wget https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz
-          tar -xzf zeromq-4.3.5.tar.gz
-          cd zeromq-4.3.5
-          ./configure --prefix=$HOME/zeromq --enable-static --disable-shared CC=gcc-10 CXX=g++-10
-          make -j$(nproc)
-          make install
-          echo "ZMQ_INCLUDE_DIR=$HOME/zeromq/include" >> $GITHUB_ENV
-          echo "ZMQ_LIBRARY=$HOME/zeromq/lib/libzmq.a" >> $GITHUB_ENV
-          cd ..
-          rm -rf zeromq-4.3.5*
 
       - name: Install cppzmq headers
         run: |
