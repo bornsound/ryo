@@ -1,4 +1,4 @@
-name: Build Ryo Currency with AppleClang 13 (Xcode 13.2)
+name: Build Ryo Currency with AppleClang
 
 on:
   push:
@@ -12,24 +12,20 @@ jobs:
     runs-on: macos-13
 
     steps:
+      - name: Set up Xcode 14.1 (AppleClang 14.0.0)
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '14.1'
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           ref: dev1
           submodules: recursive
 
-      - name: Set up Xcode 13.2 (AppleClang 13)
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: '13.2'
-
-      - name: Print compiler version
-        run: |
-          clang --version
-          clang++ --version
-
       - name: Install Homebrew dependencies
         run: |
+          brew update
           brew install pkg-config unbound libsodium miniupnpc hidapi xz readline expat libunwind-headers libpgm doxygen graphviz blake3 fmt hiredis xxhash ccache
           echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
           echo "READLINE_ROOT=/usr/local/opt/readline" >> $GITHUB_ENV
