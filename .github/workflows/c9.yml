@@ -70,15 +70,6 @@ jobs:
             exit 1
           fi
 
-      - name: Verify compiler C++11 support
-        run: |
-          echo "#include <memory>" > test.cpp
-          echo "int main() { std::unique_ptr<int> ptr = std::make_unique<int>(42); return 0; }" >> test.cpp
-          /usr/local/bin/g++-9 -std=c++14 -o test test.cpp
-          ./test
-          /usr/local/bin/g++-9 --version
-          /usr/local/bin/g++-9 -print-file-name=libstdc++.so
-          rm test.cpp test
 
       - name: Build and install ZeroMQ 4.3.5 (static)
         run: |
