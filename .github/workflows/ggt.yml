@@ -1,176 +1,129 @@
-name: Build Ryo Currency
+name: Build Ryo Currency (Ubuntu 22.04 + GCC 10)
 
 on:
   push:
-    branches: [ dev ]
+    branches: [ dev1 ]
   pull_request:
-    branches: [ dev ]
+    branches: [ dev1 ]
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: macos-13 # macOS Ventura, x86_64 architecture
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: dev
+          ref: dev1
           submodules: recursive
 
-      - name: Install Xcode Command Line Tools
+      - name: Install dependencies
         run: |
-          sudo xcode-select --install || true
-          sudo xcode-select --reset
-          xcode-select --print-path
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-10 g++-10 build-essential cmake pkg-config \
+            libsodium-dev libunwind-dev liblzma-dev libexpat1-dev \
+            libreadline-dev libpgm-dev libboost-all-dev \
+            libhidapi-dev libminiupnpc-dev libzmq3-dev \
+            libssl-dev ccache doxygen graphviz wget curl git autoconf automake
 
-      - name: Install Homebrew dependencies
+      - name: Set GCC 10 as default
         run: |
-          brew uninstall gcc@10 || true
-          brew install gcc@10
-          brew install pkg-config unbound libsodium miniupnpc hidapi xz readline expat libunwind-headers libpgm doxygen graphviz
-          # Install ccache dependencies explicitly to avoid fetching newer versions
-          brew install blake3 fmt hiredis xxhash
-          brew install ccache
-          /usr/local/bin/gcc-10 --version
-          ls -l /usr/local/lib/libunbound*
-          ls -l /usr/local/opt/readline/include/readline/readline.h || true
-          ls -l /usr/local/opt/readline/lib/libreadline.a || true
-          echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
-          echo "READLINE_ROOT=/usr/local/opt/readline" >> $GITHUB_ENV
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 100
+          gcc --version
+          g++ --version
 
-      - name: Install and pin CMake 3.31.6
+      - name: Verify C++11 support
         run: |
-          brew uninstall cmake || true
-          brew install cmake
-          brew pin cmake # Prevent upgrades
-          /usr/local/bin/cmake --version
-          # Verify version (expecting 3.31.6)
-          if ! /usr/local/bin/cmake --version | grep -q "3.31.6"; then
-            echo "CMake 3.31.6 not installed correctly"
-            exit 1
-          fi
-
-      - name: Verify compiler C++11 support
-        run: |
-          echo "#include <memory>" > test.cpp
-          echo "int main() { std::unique_ptr<int> ptr = std::make_unique<int>(42); return 0; }" >> test.cpp
-          /usr/local/bin/g++-10 -std=c++14 -o test test.cpp
+          echo '#include <memory>' > test.cpp
+          echo 'int main() { auto x = std::make_unique<int>(5); return 0; }' >> test.cpp
+          g++ -std=c++11 test.cpp -o test
           ./test
-          /usr/local/bin/g++-10 --version
-          /usr/local/bin/g++-10 -print-file-name=libstdc++.so
           rm test.cpp test
+
+      - name: Build and install OpenSSL 1.1.1 (static)
+        run: |
+          wget https://www.openssl.org/source/openssl-1.1.1w.tar.gz
+          tar -xzf openssl-1.1.1w.tar.gz
+          cd openssl-1.1.1w
+          ./config no-shared --prefix=$HOME/openssl-1.1.1
+          make -j$(nproc)
+          make install_sw
+          echo "OPENSSL_ROOT_DIR=$HOME/openssl-1.1.1" >> $GITHUB_ENV
+          echo "OPENSSL_CRYPTO_LIBRARY=$HOME/openssl-1.1.1/lib/libcrypto.a" >> $GITHUB_ENV
+          echo "OPENSSL_SSL_LIBRARY=$HOME/openssl-1.1.1/lib/libssl.a" >> $GITHUB_ENV
+          cd ..
+          rm -rf openssl-1.1.1w*
 
       - name: Build and install ZeroMQ 4.3.5 (static)
         run: |
-          curl -L https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz -o zeromq-4.3.5.tar.gz
+          wget https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz
           tar -xzf zeromq-4.3.5.tar.gz
           cd zeromq-4.3.5
-          if grep -q "#define CLOCK_REALTIME" src/clock.hpp; then
-            sed -i '' '/#define CLOCK_REALTIME 0/d' src/clock.hpp
-          fi
-          ./configure --prefix=/usr/local --enable-static --disable-shared --disable-tipc \
-            CC=/usr/local/bin/gcc-10 CXX=/usr/local/bin/g++-10 \
-            CFLAGS="-Wno-error -Wno-error=packed-not-aligned" \
-            CXXFLAGS="-std=c++11 -Wno-error -Wno-error=packed-not-aligned" \
-            LDFLAGS=""
-          make -j$(sysctl -n hw.ncpu)
-          sudo make install
+          ./configure --prefix=$HOME/zeromq --enable-static --disable-shared CC=gcc-10 CXX=g++-10
+          make -j$(nproc)
+          make install
+          echo "ZMQ_INCLUDE_DIR=$HOME/zeromq/include" >> $GITHUB_ENV
+          echo "ZMQ_LIBRARY=$HOME/zeromq/lib/libzmq.a" >> $GITHUB_ENV
           cd ..
-          ls -l /usr/local/include/zmq.h
-          ls -l /usr/local/lib/libzmq.a
-          rm -rf zeromq-4.3.5 zeromq-4.3.5.tar.gz
+          rm -rf zeromq-4.3.5*
 
-      - name: Install cppzmq
+      - name: Install cppzmq headers
         run: |
-          git clone https://github.com/zeromq/cppzmq.git
-          cd cppzmq
-          git checkout v4.9.0
-          sudo cp zmq.hpp /usr/local/include/
-          cd ..
-          ls -l /usr/local/include/zmq.hpp
-          echo "ZMQ_INCLUDE_DIR=/usr/local/include" >> $GITHUB_ENV
-          echo "ZMQ_LIBRARY=/usr/local/lib/libzmq.a" >> $GITHUB_ENV
-          echo "CMAKE_INCLUDE_PATH=/usr/local/include:$CMAKE_INCLUDE_PATH" >> $GITHUB_ENV
-          echo "CMAKE_LIBRARY_PATH=/usr/local/lib:$CMAKE_LIBRARY_PATH" >> $GITHUB_ENV
+          git clone --branch v4.9.0 https://github.com/zeromq/cppzmq.git
+          sudo cp cppzmq/zmq.hpp /usr/local/include/
           rm -rf cppzmq
 
-      - name: Build and install Boost 1.75 (static)
+      - name: Build and install Boost 1.75.0 (static)
         run: |
-          curl -L https://archives.boost.io/release/1.75.0/source/boost_1_75_0.tar.gz -o boost_1_75_0.tar.gz
+          wget https://archives.boost.io/release/1.75.0/source/boost_1_75_0.tar.gz
           tar -xzf boost_1_75_0.tar.gz
           cd boost_1_75_0
           ./bootstrap.sh --prefix=$HOME/boost-1.75
-          ./b2 -j$(sysctl -n hw.ncpu) --without-python cxxflags="-std=c++11" link=static runtime-link=static install
-          cd ..
-          ls -l $HOME/boost-1.75/lib/libboost*.a
+          ./b2 -j$(nproc) link=static runtime-link=static install
           echo "BOOST_ROOT=$HOME/boost-1.75" >> $GITHUB_ENV
           echo "CMAKE_PREFIX_PATH=$HOME/boost-1.75:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
-          rm -rf boost_1_75_0 boost_1_75_0.tar.gz
+          cd ..
+          rm -rf boost_1_75_0*
 
-      - name: Fallback to Homebrew Boost
+      - name: Configure with CMake
         run: |
-          if [ ! -f $HOME/boost-1.75/lib/libboost_system.a ]; then
-            brew install boost
-            echo "BOOST_ROOT=/usr/local/opt/boost" >> $GITHUB_ENV
-            echo "CMAKE_PREFIX_PATH=/usr/local/opt/boost:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
-          fi
-          ls -l /usr/local/opt/boost/lib/libboost*.a || true
-
-
-      - name: Create build directory
-        run: |
-          mkdir build && cd build
-
-      - name: Configure CMake for static build
-        run: |
-          cd build
-          rm -rf CMakeCache.txt CMakeFiles # Clear cache
-          /usr/local/bin/cmake .. \
-            -DCMAKE_C_COMPILER=/usr/local/bin/gcc-10 \
-            -DCMAKE_CXX_COMPILER=/usr/local/bin/g++-10 \
-            -DCMAKE_C_STANDARD=11 \
-            -DCMAKE_CXX_STANDARD=11 \
-            -DCMAKE_CXX_FLAGS_INIT="-std=c++11" \
-            -CMAKE_CXX_FLAGS="-std=c++11" \
-            -DUNBOUND_INCLUDE_DIR=/usr/local/include \
-            -DUNBOUND_LIBRARY=/usr/local/lib/libunbound.a \
+          mkdir -p build && cd build
+          cmake .. \
+            -DCMAKE_C_COMPILER=gcc-10 \
+            -DCMAKE_CXX_COMPILER=g++-10 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSTATIC=ON \
+            -DBUILD_64=ON \
+            -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR \
+            -DOPENSSL_CRYPTO_LIBRARY=$OPENSSL_CRYPTO_LIBRARY \
+            -DOPENSSL_SSL_LIBRARY=$OPENSSL_SSL_LIBRARY \
             -DZMQ_INCLUDE_DIR=$ZMQ_INCLUDE_DIR \
             -DZMQ_LIBRARY=$ZMQ_LIBRARY \
-            -DREADLINE_ROOT=$READLINE_ROOT \
-            -DReadline_INCLUDE_DIR=/usr/local/opt/readline/include \
-            -DReadline_LIBRARY=/usr/local/opt/readline/lib/libreadline.a \
             -DBOOST_ROOT=$BOOST_ROOT \
             -DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH \
-            -CMAKE_BUILD_TYPE=Release \
-            -DSTATIC=ON \
-            -DBoost_USE_STATIC_RUNTIME=ON \
-            -DUSE_SINGLE_BUILDDIR=1 \
-            -DARCH=x86_64 \
-            -DCMAKE_POLICY_DEFAULT_CMP0057=NEW \
-            -DBUILD_64=ON \
-            -CMAKE_VERBOSE_MAKEFILE=ON
+            -DCMAKE_VERBOSE_MAKEFILE=ON
 
-      - name: Build Ryo (release-static-mac-x86_64)
+      - name: Show compiler used
+        run: |
+          grep CMAKE_C_COMPILER build/CMakeCache.txt || echo "No CMAKE_C_COMPILER found"
+          grep CMAKE_CXX_COMPILER build/CMakeCache.txt || echo "No CMAKE_CXX_COMPILER found"
+
+      - name: Build project
         run: |
           cd build
-          make release-static-mac-x86_64 -j$(sysctl -n hw.ncpu)
+          make -j$(nproc)
 
       - name: Run tests (optional)
         run: |
           cd build
-          make release-test
+          make test
         continue-on-error: true
 
-      - name: Upload artifacts
+      - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
           name: ryo-binaries
           path: build/release/bin/
-
-      - name: Print CMake logs on failure
-        run: |
-          cat CMakeFiles/CMakeOutput.log || true
-          cat CMakeFiles/CMakeError.log || true
-          find . -name "CMake*.log" -exec cat {} \;
-        if: failure()
