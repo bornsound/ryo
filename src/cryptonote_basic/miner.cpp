@@ -65,8 +65,6 @@
 #include <sstream>
 
 #ifdef __APPLE__
-#include <dispatch/dispatch.h> // Added to define GCD types
-
 #include <AvailabilityMacros.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/ps/IOPSKeys.h>
