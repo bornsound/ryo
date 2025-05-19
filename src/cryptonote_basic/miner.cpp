@@ -44,7 +44,6 @@
 //
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-
 #include "boost/logic/tribool.hpp"
 #include "common/command_line.h"
 #include "cryptonote_basic_impl.h"
@@ -56,6 +55,7 @@
 #include "string_coding.h"
 #include "string_tools.h"
 #include "syncobj.h"
+
 #include <boost/algorithm/string.hpp>
 #include <boost/foreach.hpp>
 #include <boost/interprocess/detail/atomic.hpp>
@@ -65,6 +65,9 @@
 #include <sstream>
 
 #ifdef __APPLE__
+// Ensure proper definition of dispatch_queue_t before other system headers use it
+#include <dispatch/dispatch.h>
+
 #include <AvailabilityMacros.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/ps/IOPSKeys.h>
