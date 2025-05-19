@@ -26,17 +26,23 @@ jobs:
 
       - name: Install Homebrew dependencies
         run: |
+          brew update
           brew uninstall gcc@9 || true
-          brew install gcc@9
+          brew install --build-from-source gcc@9
           brew install pkg-config unbound libsodium miniupnpc hidapi xz readline expat libunwind-headers libpgm doxygen graphviz
           brew install blake3 fmt hiredis xxhash
           brew install ccache
           /usr/local/bin/gcc-9 --version
+          /usr/local/bin/g++-9 -print-file-name=libstdc++.dylib
           ls -l /usr/local/lib/libunbound*
           ls -l /usr/local/opt/readline/include/readline/readline.h || true
           ls -l /usr/local/opt/readline/lib/libreadline.a || true
           echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
           echo "READLINE_ROOT=/usr/local/opt/readline" >> $GITHUB_ENV
+          echo "CC=/usr/local/bin/gcc-9" >> $GITHUB_ENV
+          echo "CXX=/usr/local/bin/g++-9" >> $GITHUB_ENV
+          echo "CFLAGS=-macos_version_min 13.0" >> $GITHUB_ENV
+          echo "CXXFLAGS=-macos_version_min 13.0 -std=c++11" >> $GITHUB_ENV
 
       - name: Install OpenSSL 1.1.1
         run: |
@@ -70,7 +76,6 @@ jobs:
             exit 1
           fi
 
-
       - name: Build and install ZeroMQ 4.3.5 (static)
         run: |
           curl -L https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz -o zeromq-4.3.5.tar.gz
@@ -81,8 +86,8 @@ jobs:
           fi
           ./configure --prefix=/usr/local --enable-static --disable-shared --disable-tipc \
             CC=/usr/local/bin/gcc-9 CXX=/usr/local/bin/g++-9 \
-            CFLAGS="-Wno-error -Wno-error=packed-not-aligned" \
-            CXXFLAGS="-std=c++11 -Wno-error -Wno-error=packed-not-aligned" \
+            CFLAGS="-Wno-error -Wno-error=packed-not-aligned -macos_version_min 13.0" \
+            CXXFLAGS="-std=c++11 -Wno-error -Wno-error=packed-not-aligned -macos_version_min 13.0" \
             LDFLAGS=""
           make -j$(sysctl -n hw.ncpu)
           sudo make install
@@ -111,7 +116,7 @@ jobs:
           tar -xzf boost_1_75_0.tar.gz
           cd boost_1_75_0
           ./bootstrap.sh --prefix=$HOME/boost-1.75
-          ./b2 -j$(sysctl -n hw.ncpu) --without-python cxxflags="-std=c++11" link=static runtime-link=static install
+          ./b2 -j$(sysctl -n hw.ncpu) --without-python cxxflags="-std=c++11 -macos_version_min 13.0" link=static runtime-link=static install
           cd ..
           ls -l $HOME/boost-1.75/lib/libboost*.a
           echo "BOOST_ROOT=$HOME/boost-1.75" >> $GITHUB_ENV
@@ -127,11 +132,9 @@ jobs:
           fi
           ls -l /usr/local/opt/boost/lib/libboost*.a || true
 
-
       - name: Build Ryo (release-static-mac-x86_64)
         run: |
-          
-          make release-static-mac-x86_64
+          make release-static-mac-x86_64 VERBOSE=1
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
