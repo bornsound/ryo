@@ -65,6 +65,11 @@
 #include <sstream>
 
 #ifdef __APPLE__
+// Grand Central Dispatch must come first to define dispatch_queue_t
+extern "C" {
+#include <dispatch/dispatch.h>
+}
+
 #include <AvailabilityMacros.h>
 #include <TargetConditionals.h>
 
@@ -74,12 +79,8 @@
 
 #include <mach/mach_host.h>
 #include <sys/times.h>
-
-// Grand Central Dispatch support
-extern "C" {
-#include <dispatch/dispatch.h>
-}
 #endif
+
 
 
 
