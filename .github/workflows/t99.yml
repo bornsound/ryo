@@ -142,7 +142,7 @@ jobs:
 
       - name: Download and install macOS 12.3 SDK
         run: |
-          curl -L -o MacOSX12.3.sdk.tar.xz https://github.com/phracker/MacOSX-SDKs/releases/download/12.3/MacOSX12.3.sdk.tar.xz
+          curl -L -o MacOSX12.3.sdk.tar.xz https://github.com/alexey-lysiuk/macos-sdk/releases/download/12.3/MacOSX12.3.tar.xz
           sudo tar -xf MacOSX12.3.sdk.tar.xz -C /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/
           ls -l /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/
 
