@@ -35,13 +35,6 @@ jobs:
           gcc --version
           g++ --version
 
-      - name: Verify C++11 support
-        run: |
-          echo '#include <memory>' > test.cpp
-          echo 'int main() { auto x = std::make_unique<int>(5); return 0; }' >> test.cpp
-          g++ -std=c++11 test.cpp -o test
-          ./test
-          rm test.cpp test
 
       - name: Build and install OpenSSL 1.1.1 (static)
         run: |
