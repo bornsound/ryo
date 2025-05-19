@@ -111,8 +111,8 @@ jobs:
           curl -L https://archives.boost.io/release/1.75.0/source/boost_1_75_0.tar.gz -o boost_1_75_0.tar.gz
           tar -xzf boost_1_75_0.tar.gz
           cd boost_1_75_0
-          ./bootstrap.sh --prefix=$HOME/boost-1.75
-          ./b2 -j$(sysctl -n hw.ncpu) --without-python cxxflags="-std=gnu++14" link=static runtime-link=static install
+          ./bootstrap.sh --prefix=$HOME/boost-1.75 --with-toolset=clang
+          ./b2 -j$(sysctl -n hw.ncpu) --without-python cxxflags="-std=gnu++14" link=static runtime-link=static toolset=clang install
           cd ..
           rm -rf boost_1_75_0 boost_1_75_0.tar.gz
           echo "BOOST_ROOT=$HOME/boost-1.75" >> $GITHUB_ENV
