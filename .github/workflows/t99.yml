@@ -150,8 +150,8 @@ jobs:
           fi
           # Insert the macro workaround after the first #include or at the top
           sed -i '' '/#include <dispatch\/dispatch.h>/a\
-  #define dispatch_queue_t dispatch_queue_s
-  ' "$MINER_CPP_PATH"
+          #define dispatch_queue_t dispatch_queue_s
+          ' "$MINER_CPP_PATH"
           echo "Patched miner.cpp with dispatch_queue_t workaround"
 
       - name: Create build directory
