@@ -9,7 +9,8 @@
 #define FMT_TIME_H_
 
 #include <ctime>
-#include "format.h" // Ensure fmt/format.h is included for core fmt functionality
+#include <stdexcept>
+#include "format.h" // Required for fmt core functionality (basic_buffer, format_error, etc.)
 
 FMT_BEGIN_NAMESPACE
 
@@ -36,17 +37,17 @@ inline std::tm* gmtime_s(std::tm* tm, const std::time_t* time) {
   return result;
 }
 
-// Simple null_terminating_iterator to handle format string parsing
+// Simple null_terminating_iterator for format string parsing
 template <typename Char>
 class null_terminating_iterator {
  public:
-  using iterator_category = std::input_iterator_tag;
+  using iterator_category = std::forward_iterator_tag;
   using value_type = Char;
   using difference_type = std::ptrdiff_t;
   using pointer = const Char*;
   using reference = const Char&;
 
-  explicit null_terminating_iterator(const Char* begin) : ptr_(begin) {}
+  explicit null_terminating_iterator(const Char* ptr) : ptr_(ptr) {}
 
   reference operator*() const { return *ptr_; }
   pointer operator->() const { return ptr_; }
@@ -77,7 +78,18 @@ class null_terminating_iterator {
 // Dummy pointer_from for compatibility
 template <typename T>
 T* pointer_from(T* p) { return p; }
+
+// strftime wrappers for char and wchar_t
+inline std::size_t strftime(char* str, std::size_t count, const char* format,
+                            const std::tm* time) {
+  return std::strftime(str, count, format, time);
 }
+
+inline std::size_t strftime(wchar_t* str, std::size_t count,
+                            const wchar_t* format, const std::tm* time) {
+  return std::wcsftime(str, count, format, time);
+}
+} // namespace internal
 
 // Thread-safe replacement for std::localtime
 inline std::tm localtime(std::time_t time) {
@@ -105,38 +117,25 @@ inline std::tm gmtime(std::time_t time) {
   return tm;
 }
 
-namespace internal {
-// strftime wrappers for char and wchar_t
-inline std::size_t strftime(char* str, std::size_t count, const char* format,
-                            const std::tm* time) {
-  return std::strftime(str, count, format, time);
-}
-
-inline std::size_t strftime(wchar_t* str, std::size_t count,
-                            const wchar_t* format, const std::tm* time) {
-  return std::wcsftime(str, count, format, time);
-}
-}
-
 // Formatter for std::tm
 template <typename Char>
 struct formatter<std::tm, Char> {
   template <typename ParseContext>
   auto parse(ParseContext& ctx) -> decltype(ctx.begin()) {
-    auto it = ctx.begin();
-    auto end = ctx.end();
+    auto it = internal::null_terminating_iterator<Char>(ctx.begin());
+    auto end = internal::null_terminating_iterator<Char>(ctx.end());
     if (it != end && *it == ':') ++it;
-    tm_format.reserve(end - it + 1);
+    tm_format.reserve(end != it ? (end - it + 1) : 1);
     while (it != end && *it != '}') {
       tm_format.push_back(*it++);
     }
     tm_format.push_back('\0');
-    return it;
+    return internal::pointer_from(it);
   }
 
   template <typename FormatContext>
   auto format(const std::tm& tm, FormatContext& ctx) -> decltype(ctx.out()) {
-    basic_buffer<Char>& buf = get_container(ctx.out());
+    internal::basic_buffer<Char>& buf = internal::get_container(ctx.out());
     std::size_t start = buf.size();
     for (;;) {
       std::size_t size = buf.capacity() - start;
@@ -158,4 +157,4 @@ struct formatter<std::tm, Char> {
 
 FMT_END_NAMESPACE
 
-#endif  // FMT_TIME_H_
+#endif // FMT_TIME_H_
