@@ -111,7 +111,7 @@ jobs:
           echo "ZMQ_INCLUDE_DIR=/usr/local/include" >> $GITHUB_ENV
           echo "ZMQ_LIBRARY=/usr/local/lib/libzmq.a" >> $GITHUB_ENV
           echo "CMAKE_INCLUDE_PATH=/usr/local/include:$CMAKE_INCLUDE_PATH" >> $GITHUB_ENV
-          echo "CMAKE_LIBRARY_PATH=/usr/local/lib:$CMAKE_LIBRARY_PATH" >> $CMAKE_LIBRARY_PATH
+          echo "CMAKE_LIBRARY_PATH=/usr/local/lib:$CMAKE_LIBRARY_PATH" >> $GITHUB_ENV
           rm -rf cppzmq
 
       - name: Build and install Boost 1.75 (static)
