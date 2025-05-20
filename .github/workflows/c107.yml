@@ -53,8 +53,6 @@ jobs:
           sudo make install
           /usr/local/bin/cmake --version
 
-
-
       - name: Install cppzmq
         run: |
           git clone https://github.com/zeromq/cppzmq.git
@@ -110,31 +108,37 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          export CC=${{ env.CLANG_DIR }}/bin/clang
-          export CXX=${{ env.CLANG_DIR }}/bin/clang++
-          export CFLAGS="-mmacosx-version-min=12.0 -isysroot ${{ env.SDK_PATH }} -march=x86-64"
-          export CXXFLAGS="-mmacosx-version-min=12.0 -isysroot ${{ env.SDK_PATH }} -march=x86-64 -std=gnu++14"
+          
+          # Re-resolve variables
+          CLANG_DIR=$(find ../ -type d -name "clang+llvm-10.0.0-x86_64-apple-darwin" | head -n1)
+          SDK_PATH="$(xcode-select -p)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.3.sdk"
+
+          export CC="$CLANG_DIR/bin/clang"
+          export CXX="$CLANG_DIR/bin/clang++"
+          export CFLAGS="-mmacosx-version-min=12.0 -isysroot $SDK_PATH -march=x86-64"
+          export CXXFLAGS="-mmacosx-version-min=12.0 -isysroot $SDK_PATH -march=x86-64 -std=gnu++14"
+
           /usr/local/bin/cmake .. \
-            -DCMAKE_C_COMPILER=$CC \
-            -DCMAKE_CXX_COMPILER=$CXX \
+            -DCMAKE_C_COMPILER="$CC" \
+            -DCMAKE_CXX_COMPILER="$CXX" \
             -DCMAKE_C_STANDARD=11 \
             -DCMAKE_CXX_STANDARD=14 \
             -DCMAKE_CXX_EXTENSIONS=ON \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
-            -DCMAKE_OSX_SYSROOT=${{ env.SDK_PATH }} \
+            -DCMAKE_OSX_SYSROOT="$SDK_PATH" \
             -DUNBOUND_INCLUDE_DIR=/usr/local/include \
             -DUNBOUND_LIBRARY=/usr/local/lib/libunbound.a \
-            -DZMQ_INCLUDE_DIR=${{ env.ZMQ_INCLUDE_DIR }} \
-            -DZMQ_LIBRARY=${{ env.ZMQ_LIBRARY }} \
-            -DREADLINE_ROOT=${{ env.READLINE_ROOT }} \
+            -DZMQ_INCLUDE_DIR=${ZMQ_INCLUDE_DIR} \
+            -DZMQ_LIBRARY=${ZMQ_LIBRARY} \
+            -DREADLINE_ROOT=${READLINE_ROOT} \
             -DReadline_INCLUDE_DIR=/usr/local/opt/readline/include \
             -DReadline_LIBRARY=/usr/local/opt/readline/lib/libreadline.a \
-            -DOPENSSL_ROOT_DIR=${{ env.OPENSSL_ROOT_DIR }} \
+            -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} \
             -DOPENSSL_INCLUDE_DIR=/usr/local/openssl-1.1.1/include \
             -DOPENSSL_CRYPTO_LIBRARY=/usr/local/openssl-1.1.1/lib/libcrypto.a \
             -DOPENSSL_SSL_LIBRARY=/usr/local/openssl-1.1.1/lib/libssl.a \
-            -DBOOST_ROOT=${{ env.BOOST_ROOT }} \
-            -DCMAKE_PREFIX_PATH=${{ env.CMAKE_PREFIX_PATH }} \
+            -DBOOST_ROOT=${BOOST_ROOT} \
+            -DCMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH}" \
             -DBoost_USE_STATIC_LIBS=ON \
             -DCMAKE_BUILD_TYPE=Release \
             -DSTATIC=ON \
@@ -168,4 +172,4 @@ jobs:
           cat build/CMakeFiles/CMakeOutput.log || true
           cat build/CMakeFiles/CMakeError.log || true
           find build -name "CMake*.log" -exec cat {} \;
-          ${{ env.CLANG_DIR }}/bin/clang++ --version
+          $(find . -type f -name clang++ | head -n1) --version
