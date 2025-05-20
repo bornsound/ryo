@@ -25,16 +25,6 @@ jobs:
           xcode-select --print-path
           clang --version
 
-      - name: Install Clang 10.0.0
-        run: |
-          curl -LO https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz
-          tar -xf clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz
-          sudo mv clang+llvm-10.0.0-x86_64-apple-darwin /opt/clang-10
-          echo "/opt/clang-10/bin" >> $GITHUB_PATH
-          echo "CC=/opt/clang-10/bin/clang" >> $GITHUB_ENV
-          echo "CXX=/opt/clang-10/bin/clang++" >> $GITHUB_ENV
-          /opt/clang-10/bin/clang++ --version
-
       - name: Install Homebrew dependencies
         run: |
           brew install pkg-config unbound libsodium miniupnpc hidapi xz readline expat libunwind-headers libpgm doxygen graphviz blake3 fmt hiredis xxhash ccache
@@ -63,24 +53,13 @@ jobs:
           sudo make install
           /usr/local/bin/cmake --version
 
-      - name: Verify Clang 10 C++14 support
-        run: |
-          echo "#include <memory>" > test.cpp
-          echo "int main() { std::unique_ptr<int> ptr = std::make_unique<int>(42); return 0; }" >> test.cpp
-          clang++ -std=gnu++14 -o test test.cpp
-          ./test
-          rm test.cpp test
-
       - name: Build and install ZeroMQ 4.3.5 (static)
         run: |
           curl -L https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz -o zeromq-4.3.5.tar.gz
           tar -xzf zeromq-4.3.5.tar.gz
           cd zeromq-4.3.5
           sed -i '' '/#define CLOCK_REALTIME 0/d' src/clock.hpp || true
-          ./configure --prefix=/usr/local --enable-static --disable-shared --disable-tipc \
-            CC=${{ env.CC }} CXX=${{ env.CXX }} \
-            CFLAGS="-Wno-error -Wno-error=packed-not-aligned" \
-            CXXFLAGS="-std=gnu++14 -Wno-error -Wno-error=packed-not-aligned"
+          ./configure --prefix=/usr/local --enable-static --disable-shared --disable-tipc
           make -j$(sysctl -n hw.ncpu)
           sudo make install
 
@@ -98,8 +77,8 @@ jobs:
           curl -L https://archives.boost.io/release/1.75.0/source/boost_1_75_0.tar.gz -o boost_1_75_0.tar.gz
           tar -xzf boost_1_75_0.tar.gz
           cd boost_1_75_0
-          ./bootstrap.sh --prefix=$HOME/boost-1.75 --with-toolset=clang
-          ./b2 -j$(sysctl -n hw.ncpu) --without-python cxxflags="-std=gnu++14" link=static runtime-link=static toolset=clang install
+          ./bootstrap.sh --prefix=$HOME/boost-1.75
+          ./b2 -j$(sysctl -n hw.ncpu) --without-python link=static runtime-link=static install
           echo "BOOST_ROOT=$HOME/boost-1.75" >> $GITHUB_ENV
           echo "CMAKE_PREFIX_PATH=$HOME/boost-1.75:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
 
@@ -126,12 +105,21 @@ jobs:
           echo "SDK_PATH=$SDK_PATH" >> $GITHUB_ENV
           echo "path=$SDK_PATH" >> $GITHUB_OUTPUT
 
-      - name: Configure CMake for static build
+      - name: Install Clang 10
+        run: |
+          curl -L https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz -o clang10.tar.xz
+          tar -xf clang10.tar.xz
+          CLANG_DIR=$(find . -type d -name "clang+llvm-10.0.0-x86_64-apple-darwin" | head -n1)
+          echo "CLANG_DIR=$CLANG_DIR" >> $GITHUB_ENV
+          echo "$CLANG_DIR/bin" >> $GITHUB_PATH
+          $CLANG_DIR/bin/clang++ --version
+
+      - name: Configure CMake for Ryo build with Clang 10
         run: |
           mkdir -p build
           cd build
-          export CC=${{ env.CC }}
-          export CXX=${{ env.CXX }}
+          export CC=${{ env.CLANG_DIR }}/bin/clang
+          export CXX=${{ env.CLANG_DIR }}/bin/clang++
           export CFLAGS="-mmacosx-version-min=12.0 -isysroot ${{ env.SDK_PATH }} -march=x86-64"
           export CXXFLAGS="-mmacosx-version-min=12.0 -isysroot ${{ env.SDK_PATH }} -march=x86-64 -std=gnu++14"
           /usr/local/bin/cmake .. \
@@ -188,4 +176,4 @@ jobs:
           cat build/CMakeFiles/CMakeOutput.log || true
           cat build/CMakeFiles/CMakeError.log || true
           find build -name "CMake*.log" -exec cat {} \;
-          clang++ --version
+          ${{ env.CLANG_DIR }}/bin/clang++ --version
