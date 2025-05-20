@@ -125,10 +125,14 @@ jobs:
         run: |
           curl -L https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz -o clang10.tar.xz
           tar -xf clang10.tar.xz
-          CLANG_DIR=$(find . -type d -name "clang+llvm-10.0.0-x86_64-apple-darwin" | head -n1)
-          echo "CLANG_DIR=$CLANG_DIR" >> $GITHUB_ENV
-          echo "$CLANG_DIR/bin" >> $GITHUB_PATH
-          $CLANG_DIR/bin/clang++ --version
+          CLANG_DIR=$(find . -type d -name "clang+llvm-10.0.0-x86_64-apple-darwin" -maxdepth 1 | head -n1)
+          CLANG_DIR_ABS=$(realpath "$CLANG_DIR")
+          echo "CLANG_DIR=$CLANG_DIR_ABS" >> $GITHUB_ENV
+          echo "$CLANG_DIR_ABS/bin" >> $GITHUB_PATH
+          $CLANG_DIR_ABS/bin/clang++ --version
+          # Verify Clang 10 binaries exist
+          ls -l $CLANG_DIR_ABS/bin/clang
+          ls -l $CLANG_DIR_ABS/bin/clang++
 
       - name: Configure CMake for static build (Clang 10)
         run: |
@@ -146,7 +150,7 @@ jobs:
             -DCMAKE_CXX_EXTENSIONS=ON \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
             -DCMAKE_OSX_SYSROOT=${{ env.SDK_PATH }} \
-            -CMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
             -DUNBOUND_INCLUDE_DIR=/usr/local/include \
             -DUNBOUND_LIBRARY=/usr/local/lib/libunbound.a \
             -DZMQ_INCLUDE_DIR=${{ env.ZMQ_INCLUDE_DIR }} \
