@@ -79,17 +79,17 @@ template <typename Char>
 struct formatter<std::tm, Char> {
   template <typename ParseContext>
   auto parse(ParseContext& ctx) -> decltype(ctx.begin()) {
-    // Use basic_string_view to handle format string parsing
-    basic_string_view<Char> format(ctx.begin(), ctx.end());
-    auto it = ctx.begin();
-    auto end = ctx.end();
+    // Create a basic_string_view from ctx.begin() and ctx.end()
+    basic_string_view<Char> format(ctx.begin(), ctx.end() - ctx.begin());
+    auto it = internal::null_terminating_iterator<Char>(format);
+    auto end = internal::null_terminating_iterator<Char>(format.end());
     if (it != end && *it == ':') ++it;
-    tm_format.reserve(end != it ? (end - it + 1) : 1);
+    tm_format.reserve(end != it ? (format.end() - format.begin() + 1) : 1);
     while (it != end && *it != '}') {
       tm_format.push_back(*it++);
     }
     tm_format.push_back('\0');
-    return it;
+    return ctx.advance_to(it.ptr_);
   }
 
   template <typename FormatContext>
