@@ -53,15 +53,7 @@ jobs:
           sudo make install
           /usr/local/bin/cmake --version
 
-      - name: Build and install ZeroMQ 4.3.5 (static)
-        run: |
-          curl -L https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz -o zeromq-4.3.5.tar.gz
-          tar -xzf zeromq-4.3.5.tar.gz
-          cd zeromq-4.3.5
-          sed -i '' '/#define CLOCK_REALTIME 0/d' src/clock.hpp || true
-          ./configure --prefix=/usr/local --enable-static --disable-shared --disable-tipc
-          make -j$(sysctl -n hw.ncpu)
-          sudo make install
+
 
       - name: Install cppzmq
         run: |
