@@ -1,4 +1,4 @@
-name: Build Ryo Currency with AppleClang
+name: Build Ryo Currency with AppleClang and Clang 10
 
 on:
   push:
@@ -121,12 +121,21 @@ jobs:
           echo "SDK_PATH=$SDK_PATH" >> $GITHUB_ENV
           echo "path=$SDK_PATH" >> $GITHUB_OUTPUT
 
-      - name: Configure CMake for static build
+      - name: Install Clang 10
+        run: |
+          curl -L https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz -o clang10.tar.xz
+          tar -xf clang10.tar.xz
+          CLANG_DIR=$(find . -type d -name "clang+llvm-10.0.0-x86_64-apple-darwin" | head -n1)
+          echo "CLANG_DIR=$CLANG_DIR" >> $GITHUB_ENV
+          echo "$CLANG_DIR/bin" >> $GITHUB_PATH
+          $CLANG_DIR/bin/clang++ --version
+
+      - name: Configure CMake for static build (Clang 10)
         run: |
           mkdir -p build
           cd build
-          export CC=clang
-          export CXX=clang++
+          export CC=$CLANG_DIR/bin/clang
+          export CXX=$CLANG_DIR/bin/clang++
           export CFLAGS="-mmacosx-version-min=12.0 -isysroot ${{ env.SDK_PATH }} -march=x86-64"
           export CXXFLAGS="-mmacosx-version-min=12.0 -isysroot ${{ env.SDK_PATH }} -march=x86-64 -std=gnu++14"
           /usr/local/bin/cmake .. \
@@ -137,7 +146,7 @@ jobs:
             -DCMAKE_CXX_EXTENSIONS=ON \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
             -DCMAKE_OSX_SYSROOT=${{ env.SDK_PATH }} \
-            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -CMAKE_OSX_ARCHITECTURES=x86_64 \
             -DUNBOUND_INCLUDE_DIR=/usr/local/include \
             -DUNBOUND_LIBRARY=/usr/local/lib/libunbound.a \
             -DZMQ_INCLUDE_DIR=${{ env.ZMQ_INCLUDE_DIR }} \
@@ -161,7 +170,7 @@ jobs:
             -DBUILD_64=ON \
             -DCMAKE_EXE_LINKER_FLAGS="-framework CoreFoundation -framework IOKit -ldispatch"
 
-      - name: Build Ryo (release-static-mac-x86_64)
+      - name: Build Ryo (release-static-mac-x86_64 with Clang 10)
         run: |
           cd build
           make -j$(sysctl -n hw.ncpu)
@@ -175,7 +184,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ryo-binaries
+          name: ryo-binaries-clang10
           path: build/release/bin/
 
       - name: Print CMake logs and compiler info on failure
@@ -184,4 +193,4 @@ jobs:
           cat build/CMakeFiles/CMakeOutput.log || true
           cat build/CMakeFiles/CMakeError.log || true
           find build -name "CMake*.log" -exec cat {} \;
-          clang++ --version
+          $CLANG_DIR/bin/clang++ --version
