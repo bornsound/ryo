@@ -153,7 +153,6 @@ jobs:
           /usr/local/bin/cmake .. \
             -DCMAKE_C_COMPILER=$CC \
             -DCMAKE_CXX_COMPILER=$CXX \
-
             -DCMAKE_CXX_EXTENSIONS=ON \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 \
             -DCMAKE_OSX_SYSROOT=${{ env.SDK_PATH }} \
