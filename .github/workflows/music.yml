@@ -2,9 +2,9 @@ name: Build Ryo Currency with GCC 7 via MacPorts
 
 on:
   push:
-    branches: [ dev ]
+    branches: [ dev1 ]
   pull_request:
-    branches: [ dev ]
+    branches: [ dev1 ]
   workflow_dispatch:
 
 jobs:
@@ -15,7 +15,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: dev
+          ref: dev1
           submodules: recursive
 
       - name: Install Xcode Command Line Tools
@@ -81,7 +81,8 @@ jobs:
           fi
 
       - name: Set macOS deployment target to 12.0
-        run: echo "MACOSX_DEPLOYMENT_TARGET=12.0" >> $GITHUB_ENV
+        run: |
+          echo "MACOSX_DEPLOYMENT_TARGET=12.0" >> $GITHUB_ENV
 
       - name: Download and install macOS 12.3 SDK
         run: |
@@ -97,33 +98,20 @@ jobs:
 
       - name: Install MacPorts and GCC 7
         run: |
-          # Download MacPorts
-          curl -L https://github.com/macports/macports-base/releases/download/v2.10.2/MacPorts-2.10.2.tar.gz -o MacPorts-2.10.2.tar.gz || { echo "Failed to download MacPorts tarball"; exit 1; }
+          # Download MacPorts installer for macOS Ventura
+          curl -L https://github.com/macports/macports-base/releases/download/v2.10.2/MacPorts-2.10.2-13-Ventura.pkg -o MacPorts-2.10.2.pkg || { echo "Failed to download MacPorts installer"; exit 1; }
           
-          # Verify tarball exists
-          ls -l MacPorts-2.10.2.tar.gz || { echo "MacPorts tarball not found"; exit 1; }
+          # Verify installer exists
+          ls -l MacPorts-2.10.2.pkg || { echo "MacPorts installer not found"; exit 1; }
           
-          # Inspect tarball contents to find top-level directory
-          tar -tzf MacPorts-2.10.2.tar.gz | head -n 1
-          MACPORTS_DIR=$(tar -tzf MacPorts-2.10.2.tar.gz | head -n 1 | cut -d '/' -f 1)
-          echo "Extracted MacPorts directory: $MACPORTS_DIR"
-          
-          # Extract tarball
-          tar -xzf MacPorts-2.10.2.tar.gz || { echo "Failed to extract MacPorts tarball"; exit 1; }
-          
-          # Verify extracted directory
-          ls -ld "$MACPORTS_DIR" || { echo "MacPorts directory $MACPORTS_DIR not found"; exit 1; }
-          
-          # Change to extracted directory
-          cd "$MACPORTS_DIR" || { echo "Failed to cd to $MACPORTS_DIR"; exit 1; }
-          
-          # Configure and build MacPorts with Clang
-          ./configure --prefix=/opt/local --with-applications-dir=/Applications/MacPorts
-          make -j$(sysctl -n hw.ncpu) CC=clang CXX=clang++
-          sudo make install
+          # Install MacPorts
+          sudo installer -pkg MacPorts-2.10.2.pkg -target / || { echo "Failed to install MacPorts"; exit 1; }
           
           # Add MacPorts to PATH
           echo "/opt/local/bin:/opt/local/sbin" >> $GITHUB_PATH
+          
+          # Verify MacPorts installation
+          /opt/local/bin/port version || { echo "MacPorts not installed correctly"; exit 1; }
           
           # Update MacPorts and install GCC 7
           sudo /opt/local/bin/port -v selfupdate || { echo "MacPorts selfupdate failed"; exit 1; }
@@ -212,8 +200,8 @@ jobs:
       - name: Clean up temporary files
         if: always()
         run: |
-          rm -rf *.tar.gz *.tar.xz
-          rm -rf macports-* boost_1_75_0 cmake-3.31.6 openssl-1.1.1w cppzmq
+          rm -rf *.tar.gz *.tar.xz *.pkg
+          rm -rf boost_1_75_0 cmake-3.31.6 openssl-1.1.1w cppzmq
 
       - name: Print CMake logs and compiler info on failure
         if: failure()
@@ -221,4 +209,5 @@ jobs:
           cat build/CMakeFiles/CMakeOutput.log || true
           cat build/CMakeFiles/CMakeError.log || true
           find build -name "CMake*.log" -exec cat {} \;
-          /opt/local/bin/g++-mp-7 --version
+          /opt/local/bin/g++-mp-7 --version || true
+          /opt/local/bin/port version || true
