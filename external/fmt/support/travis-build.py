@@ -2,8 +2,8 @@
 # Build the project on Travis CI.
 
 from __future__ import print_function
-import errno, os, shutil, subprocess, sys, urllib
-from subprocess import call, check_call, Popen, PIPE, STDOUT
+import errno, os, re, shutil, sys, tempfile, urllib
+from subprocess import call, check_call, check_output, Popen, PIPE, STDOUT
 
 def rmtree_if_exists(dir):
     try:
@@ -75,7 +75,7 @@ if build == 'Doc':
         # Print the output without the key.
         print(p.communicate()[0].replace(os.environ['KEY'], '$KEY'))
         if p.returncode != 0:
-            raise subprocess.CalledProcessError(p.returncode, cmd)
+            raise CalledProcessError(p.returncode, cmd)
     exit(0)
 
 standard = os.environ['STANDARD']
@@ -85,12 +85,16 @@ test_build_dir = os.path.join(fmt_dir, "_build_test")
 
 # Configure library.
 makedirs_if_not_exist(build_dir)
-cmake_flags = [
-    '-DCMAKE_INSTALL_PREFIX=' + install_dir, '-DCMAKE_BUILD_TYPE=' + build,
-    '-DCMAKE_CXX_STANDARD=' + standard
+common_cmake_flags = [
+    '-DCMAKE_INSTALL_PREFIX=' + install_dir, '-DCMAKE_BUILD_TYPE=' + build
 ]
-check_call(['cmake', '-DFMT_DOC=OFF', '-DFMT_PEDANTIC=ON', '-DFMT_WERROR=ON', fmt_dir] +
-           cmake_flags, cwd=build_dir)
+extra_cmake_flags = []
+if standard != '0x':
+    extra_cmake_flags = [
+        '-DCMAKE_CXX_FLAGS=-std=c++' + standard, '-DFMT_USE_CPP11=OFF'
+    ]
+check_call(['cmake', '-DFMT_DOC=OFF', '-DFMT_PEDANTIC=ON', fmt_dir] +
+           common_cmake_flags + extra_cmake_flags, cwd=build_dir)
 
 # Build library.
 check_call(['make', '-j4'], cwd=build_dir)
@@ -99,7 +103,7 @@ check_call(['make', '-j4'], cwd=build_dir)
 env = os.environ.copy()
 env['CTEST_OUTPUT_ON_FAILURE'] = '1'
 if call(['make', 'test'], env=env, cwd=build_dir):
-    with open(os.path.join(build_dir, 'Testing', 'Temporary', 'LastTest.log'), 'r') as f:
+    with open('Testing/Temporary/LastTest.log', 'r') as f:
         print(f.read())
     sys.exit(-1)
 
@@ -108,6 +112,7 @@ check_call(['make', 'install'], cwd=build_dir)
 
 # Test installation.
 makedirs_if_not_exist(test_build_dir)
-check_call(['cmake', os.path.join(fmt_dir, "test", "find-package-test")] +
-            cmake_flags, cwd=test_build_dir)
+check_call(['cmake', '-DCMAKE_CXX_FLAGS=-std=c++' + standard,
+                     os.path.join(fmt_dir, "test", "find-package-test")] +
+           common_cmake_flags, cwd=test_build_dir)
 check_call(['make', '-j4'], cwd=test_build_dir)
