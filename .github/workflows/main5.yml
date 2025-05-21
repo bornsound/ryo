@@ -1,0 +1,31 @@
+name: Install GCC 7 from .pkg
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: macos-12
+
+    steps:
+      - name: Download GCC 7 .pkg
+        run: |
+          curl -L -o gcc-7.pkg https://github.com/fxcoudert/gfortran-for-macOS/releases/download/7.5.0/gcc-7.5.0.pkg
+
+      - name: Install GCC 7 .pkg
+        run: |
+          sudo installer -pkg gcc-7.pkg -target /
+
+      - name: Verify GCC installation
+        run: |
+          /usr/local/bin/gcc-7 --version
+          /usr/local/bin/g++-7 --version
+
+      - name: Build your project
+        run: |
+          export CC=/usr/local/bin/gcc-7
+          export CXX=/usr/local/bin/g++-7
+          make
