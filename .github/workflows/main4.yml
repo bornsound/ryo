@@ -128,7 +128,7 @@ jobs:
       - name: Build Ryo (release-static-mac-x86_64)
         run: |
           cd build
-          make release-static-mac-x86_64 -j$(sysctl -n hw.ncpu)
+          make -j$(sysctl -n hw.ncpu)
 
       - name: Run tests (optional)
         run: |
