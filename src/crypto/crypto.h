@@ -54,6 +54,7 @@
 #include <iostream>
 #include <type_traits>
 #include <vector>
+#include <string_view>
 
 #include "fmt/format.h"
 #include "common/util.h"
