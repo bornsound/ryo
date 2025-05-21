@@ -100,7 +100,7 @@ jobs:
 
       - name: Fallback to Homebrew Boost
         run: |
-          if [ ! -f "$HOME/boost-1.75/lib/libboost_system.a" ]; then
+          if [ ! -f "$HOME/boost-1.70/lib/libboost_system.a" ]; then
             brew install boost
             echo "BOOST_ROOT=/usr/local/opt/boost" >> $GITHUB_ENV
             echo "CMAKE_PREFIX_PATH=/usr/local/opt/boost:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
