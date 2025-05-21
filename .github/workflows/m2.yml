@@ -1,0 +1,34 @@
+name: Build with GCC 7 on macOS 12
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-12
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install GCC 7
+        run: |
+          brew update
+          brew install gcc@7
+
+      - name: Set GCC 7 as compiler
+        run: |
+          echo "CC=gcc-7" >> $GITHUB_ENV
+          echo "CXX=g++-7" >> $GITHUB_ENV
+
+      - name: Verify GCC 7
+        run: |
+          gcc-7 --version
+          g++-7 --version
+
+      - name: Build project
+        run: |
+          make  # or your custom build command
