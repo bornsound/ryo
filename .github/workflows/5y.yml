@@ -1,4 +1,4 @@
-name: macOS 12 with GCC 7
+name: Install GCC 7 from .pkg
 
 on:
   push:
@@ -11,22 +11,21 @@ jobs:
     runs-on: macos-12
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Install GCC 7 via Homebrew
+      - name: Download GCC 7 .pkg
         run: |
-          brew update
-          brew install gcc@7
-          echo 'export PATH="/usr/local/opt/gcc@7/bin:$PATH"' >> ~/.zshrc
-          echo 'export CC=gcc-7' >> $GITHUB_ENV
-          echo 'export CXX=g++-7' >> $GITHUB_ENV
+          curl -L -o gcc-7.pkg https://github.com/fxcoudert/gfortran-for-macOS/releases/download/7.5.0/gcc-7.5.0.pkg
 
-      - name: Verify GCC version
+      - name: Install GCC 7 .pkg
         run: |
-          gcc-7 --version
-          g++-7 --version
+          sudo installer -pkg gcc-7.pkg -target /
 
-      - name: Build with GCC 7
+      - name: Verify GCC installation
         run: |
-          make CC=gcc-7 CXX=g++-7
+          /usr/local/bin/gcc-7 --version
+          /usr/local/bin/g++-7 --version
+
+      - name: Build your project
+        run: |
+          export CC=/usr/local/bin/gcc-7
+          export CXX=/usr/local/bin/g++-7
+          make
