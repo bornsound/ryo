@@ -1,110 +1,35 @@
-name: Build Ryo Currency (Ubuntu 22.04 + GCC 10)
+name: Build with GCC 7 on macOS 12
 
 on:
   push:
-    branches: [ dev1 ]
+    branches: [ main ]
   pull_request:
-    branches: [ dev1 ]
-  workflow_dispatch:
+    branches: [ main ]
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: macos-12
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: dev1
-          submodules: recursive
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Install dependencies
+      - name: Install GCC 7
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            gcc-10 g++-10 build-essential cmake pkg-config \
-            libsodium-dev libunwind-dev liblzma-dev libexpat1-dev \
-            libreadline-dev libpgm-dev libboost-all-dev \
-            libhidapi-dev libminiupnpc-dev libzmq3-dev \
-            libssl-dev ccache doxygen graphviz wget curl git autoconf automake
+          brew update
+          brew install gcc@7
 
-      - name: Set GCC 10 as default
+      - name: Add GCC 7 to PATH and set environment variables
         run: |
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100
-          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 100
-          gcc --version
-          g++ --version
+          echo "/usr/local/opt/gcc@7/bin" >> $GITHUB_PATH
+          echo "CC=gcc-7" >> $GITHUB_ENV
+          echo "CXX=g++-7" >> $GITHUB_ENV
 
-
-      - name: Build and install OpenSSL 1.1.1 (static)
+      - name: Verify GCC 7 version
         run: |
-          wget https://www.openssl.org/source/openssl-1.1.1w.tar.gz
-          tar -xzf openssl-1.1.1w.tar.gz
-          cd openssl-1.1.1w
-          ./config no-shared --prefix=$HOME/openssl-1.1.1
-          make -j$(nproc)
-          make install_sw
-          echo "OPENSSL_ROOT_DIR=$HOME/openssl-1.1.1" >> $GITHUB_ENV
-          echo "OPENSSL_CRYPTO_LIBRARY=$HOME/openssl-1.1.1/lib/libcrypto.a" >> $GITHUB_ENV
-          echo "OPENSSL_SSL_LIBRARY=$HOME/openssl-1.1.1/lib/libssl.a" >> $GITHUB_ENV
-          cd ..
-          rm -rf openssl-1.1.1w*
-
-
-      - name: Install cppzmq headers
-        run: |
-          git clone --branch v4.9.0 https://github.com/zeromq/cppzmq.git
-          sudo cp cppzmq/zmq.hpp /usr/local/include/
-          rm -rf cppzmq
-
-      - name: Build and install Boost 1.75.0 (static)
-        run: |
-          wget https://archives.boost.io/release/1.75.0/source/boost_1_75_0.tar.gz
-          tar -xzf boost_1_75_0.tar.gz
-          cd boost_1_75_0
-          ./bootstrap.sh --prefix=$HOME/boost-1.75
-          ./b2 -j$(nproc) link=static runtime-link=static install
-          echo "BOOST_ROOT=$HOME/boost-1.75" >> $GITHUB_ENV
-          echo "CMAKE_PREFIX_PATH=$HOME/boost-1.75:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
-          cd ..
-          rm -rf boost_1_75_0*
-
-      - name: Configure with CMake
-        run: |
-          mkdir -p build && cd build
-          cmake .. \
-            -DCMAKE_C_COMPILER=gcc-10 \
-            -DCMAKE_CXX_COMPILER=g++-10 \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DSTATIC=ON \
-            -DBUILD_64=ON \
-            -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR \
-            -DOPENSSL_CRYPTO_LIBRARY=$OPENSSL_CRYPTO_LIBRARY \
-            -DOPENSSL_SSL_LIBRARY=$OPENSSL_SSL_LIBRARY \
-            -DZMQ_INCLUDE_DIR=$ZMQ_INCLUDE_DIR \
-            -DZMQ_LIBRARY=$ZMQ_LIBRARY \
-            -DBOOST_ROOT=$BOOST_ROOT \
-            -DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH \
-            -DCMAKE_VERBOSE_MAKEFILE=ON
-
-      - name: Show compiler used
-        run: |
-          grep CMAKE_C_COMPILER build/CMakeCache.txt || echo "No CMAKE_C_COMPILER found"
-          grep CMAKE_CXX_COMPILER build/CMakeCache.txt || echo "No CMAKE_CXX_COMPILER found"
+          gcc-7 --version
+          g++-7 --version
 
       - name: Build project
         run: |
-          cd build
-          make -j$(nproc)
-
-      - name: Run tests (optional)
-        run: |
-          cd build
-          make test
-        continue-on-error: true
-
-      - name: Upload binaries
-        uses: actions/upload-artifact@v4
-        with:
-          name: ryo-binaries
-          path: build/release/bin/
+          make
