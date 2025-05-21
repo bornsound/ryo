@@ -98,24 +98,6 @@ jobs:
           fi
           ls -l /usr/local/opt/boost/lib/libboost*.a || true
 
-      - name: Inspect CMakeLists.txt and src/rpc/CMakeLists.txt
-        run: |
-          cat -n CMakeLists.txt | grep -A 20 -B 20 851
-          cat -n src/CMakeLists.txt | grep -A 20 -B 20 102
-          cat -n src/rpc/CMakeLists.txt | grep -A 20 -B 20 48 || true
-          ls -l src/rpc/* || true
-          find src -type f -name "*instantiation*" || true
-          ls -l src/rpc/*.cpp || true
-
-      - name: Fix src/rpc/CMakeLists.txt syntax
-        run: |
-          # Rewrite rpc_sources to fix syntax
-          sed -i '' '/set(rpc_sources/,/)/c\
-  set(rpc_sources\n\
-    core_rpc_server.cpp\n\
-  )' src/rpc/CMakeLists.txt
-          # Print updated file
-          cat -n src/rpc/CMakeLists.txt || true
 
       - name: Create build directory
         run: |
