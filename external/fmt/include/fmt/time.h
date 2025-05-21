@@ -11,13 +11,37 @@
 #include "format.h"
 #include <ctime>
 
+// Define FMT_NULL for macOS
+#ifndef FMT_NULL
+#define FMT_NULL nullptr
+#endif
+
+// Use POSIX time functions on macOS
+#define FMT_USE_LOCALTIME_R 1
+#define FMT_USE_GMTIME_R 1
+
 FMT_BEGIN_NAMESPACE
 
-namespace internal{
+namespace internal {
+// Define null<> template
+template <typename... Args> struct null {};
+
+// Fallbacks for time functions
 inline null<> localtime_r(...) { return null<>(); }
 inline null<> localtime_s(...) { return null<>(); }
 inline null<> gmtime_r(...) { return null<>(); }
 inline null<> gmtime_s(...) { return null<>(); }
+
+// Define null_terminating_iterator
+template <typename Char>
+struct null_terminating_iterator {
+    null_terminating_iterator(fmt::basic_format_context<Char, char>& ctx) {}
+    operator const Char*() const { return nullptr; }
+};
+
+// Define pointer_from
+template <typename T>
+T* pointer_from(T* p) { return p; }
 }
 
 // Thread-safe replacement for std::localtime
