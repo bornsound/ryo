@@ -1,0 +1,44 @@
+name: Install MacPorts via pkg and GCC 7
+
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
+    branches:
+      - dev
+
+jobs:
+  install-macports-gcc7:
+    runs-on: macos-12
+
+    steps:
+      # Step 1: Check out the repository (dev branch)
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+
+      # Step 2: Download MacPorts .pkg for macOS Monterey
+      - name: Download MacPorts Installer
+        run: |
+          curl -L -o macports.pkg https://github.com/macports/macports-base/releases/download/v2.10.1/MacPorts-2.10.1-12-Monterey.pkg
+
+      # Step 3: Install MacPorts
+      - name: Install MacPorts
+        run: |
+          sudo installer -pkg macports.pkg -target /
+          # Add MacPorts to PATH
+          echo "/opt/local/bin:/opt/local/sbin" >> $GITHUB_PATH
+          export PATH="/opt/local/bin:/opt/local/sbin:$PATH"
+
+      # Step 4: Update MacPorts and install GCC 7
+      - name: Update MacPorts and Install GCC 7
+        run: |
+          sudo /opt/local/bin/port selfupdate
+          sudo /opt/local/bin/port install gcc7
+
+      # Step 5: Verify GCC 7 installation
+      - name: Verify GCC 7
+        run: |
+          /opt/local/bin/gcc-mp-7 --version
