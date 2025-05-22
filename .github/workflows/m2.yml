@@ -1,35 +1,44 @@
-name: Build with GCC 7 on macOS 12
+name: Install MacPorts via pkg and GCC 7
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - dev
   pull_request:
-    branches: [ master ]
+    branches:
+      - dev
 
 jobs:
-  build:
-    runs-on: macos-12
+  install-macports-gcc7:
+    runs-on: macos-13
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      # Step 1: Check out the repository (dev branch)
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: dev
 
-      - name: Install GCC 7
+      # Step 2: Download MacPorts .pkg for macOS Ventura
+      - name: Download MacPorts Installer
         run: |
-          brew update
-          brew install gcc@7
+          curl -L -o macports.pkg https://github.com/macports/macports-base/releases/download/v2.10.1/MacPorts-2.10.1-13-Ventura.pkg
 
-      - name: Add GCC 7 to PATH and set environment variables
+      # Step 3: Install MacPorts
+      - name: Install MacPorts
         run: |
-          echo "/usr/local/opt/gcc@7/bin" >> $GITHUB_PATH
-          echo "CC=gcc-7" >> $GITHUB_ENV
-          echo "CXX=g++-7" >> $GITHUB_ENV
+          sudo installer -pkg macports.pkg -target /
+          # Add MacPorts to PATH
+          echo "/opt/local/bin:/opt/local/sbin" >> $GITHUB_PATH
+          export PATH="/opt/local/bin:/opt/local/sbin:$PATH"
 
-      - name: Verify GCC 7 version
+      # Step 4: Update MacPorts and install GCC 7
+      - name: Update MacPorts and Install GCC 7
         run: |
-          gcc-7 --version
-          g++-7 --version
+          sudo /opt/local/bin/port selfupdate
+          sudo /opt/local/bin/port install gcc7
 
-      - name: Build project
+      # Step 5: Verify GCC 7 installation
+      - name: Verify GCC 7
         run: |
-          make
+          /opt/local/bin/gcc-mp-7 --version
