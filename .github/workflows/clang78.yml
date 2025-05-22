@@ -1,0 +1,49 @@
+name: Install Clang 7
+
+on:
+  push:
+    branches: [ dev1 ]
+  pull_request:
+    branches: [ dev1 ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-13
+
+    steps:
+      - name: Install Clang 7
+        run: |
+          # Download Clang 7 tarball
+          curl -L https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz -o clang+llvm-7.0.0.tar.xz
+          
+          # Verify tarball download
+          ls -l clang+llvm-7.0.0.tar.xz || { echo "Tarball download failed"; exit 1; }
+          
+          # Extract tarball
+          tar -xJf clang+llvm-7.0.0.tar.xz
+          
+          # Verify extracted directory
+          ls -ld clang+llvm-7.0.0-x86_64-apple-darwin || { echo "Extracted directory not found"; exit 1; }
+          
+          # Move to /opt/clang-7
+          sudo mkdir -p /opt/clang-7
+          sudo mv clang+llvm-7.0.0-x86_64-apple-darwin/* /opt/clang-7/ || { echo "Failed to move Clang 7 files"; exit 1; }
+          
+          # Verify binary existence and permissions
+          ls -l /opt/clang-7/bin/ || { echo "Clang 7 bin directory not found"; exit 1; }
+          ls -l /opt/clang-7/bin/clang || ls -l /opt/clang-7/bin/clang-7 || { echo "Clang 7 binary not found"; exit 1; }
+          ls -l /opt/clang-7/bin/clang++ || ls -l /opt/clang-7/bin/clang++-7 || { echo "Clang++ 7 binary not found"; exit 1; }
+          
+          # Ensure binaries are executable
+          sudo chmod +x /opt/clang-7/bin/* || { echo "Failed to set executable permissions"; exit 1; }
+          
+          # Add Clang 7 to PATH
+          echo "/opt/clang-7/bin" >> $GITHUB_PATH
+          
+          # Verify Clang 7 installation
+          /opt/clang-7/bin/clang --version || /opt/clang-7/bin/clang-7 --version || { echo "Clang 7 version check failed"; exit 1; }
+          /opt/clang-7/bin/clang++ --version || /opt/clang-7/bin/clang++-7 --version || { echo "Clang++ 7 version check failed"; exit 1; }
+          
+          # Print target and thread model for confirmation
+          /opt/clang-7/bin/clang --version | grep Target || true
