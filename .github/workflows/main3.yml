@@ -107,15 +107,7 @@ jobs:
           find src -type f -name "*instantiation*" || true
           ls -l src/rpc/*.cpp || true
 
-      - name: Fix src/rpc/CMakeLists.txt syntax
-        run: |
-          # Rewrite rpc_sources to fix syntax
-          sed -i '' '/set(rpc_sources/,/)/c\
-  set(rpc_sources\n\
-    core_rpc_server.cpp\n\
-  )' src/rpc/CMakeLists.txt
-          # Print updated file
-          cat -n src/rpc/CMakeLists.txt || true
+
 
       - name: Create build directory
         run: |
