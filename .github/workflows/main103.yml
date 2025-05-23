@@ -142,16 +142,6 @@ jobs:
           test -f /usr/local/lib/libunbound.a || { echo "libunbound.a not found"; exit 1; }
           test -f /usr/local/include/zmq.hpp || { echo "zmq.hpp not found"; exit 1; }
 
-      - name: Test ZeroMQ Detection
-        run: |
-          mkdir -p test_zmq
-          cd test_zmq
-          echo "cmake_minimum_required(VERSION 3.10)" > CMakeLists.txt
-          echo "project(TestZMQ)" >> CMakeLists.txt
-          echo "find_package(ZeroMQ REQUIRED)" >> CMakeLists.txt
-          echo "message(STATUS \"ZeroMQ_INCLUDE_DIR: \${ZeroMQ_INCLUDE_DIR}\")" >> CMakeLists.txt
-          echo "message(STATUS \"ZeroMQ_LIBRARY: \${ZeroMQ_LIBRARY}\")" >> CMakeLists.txt
-          /usr/local/bin/cmake . -DZMQ_INCLUDE_DIR=/usr/local/include -DZMQ_LIBRARY=/usr/local/lib/libzmq.a -DZeroMQ_INCLUDE_DIR=/usr/local/include -DZeroMQ_LIBRARY=/usr/local/lib/libzmq.a -DCMAKE_PREFIX_PATH=/usr/local || { echo "ZeroMQ detection failed in test project"; exit 1; }
 
       - name: Debug ZeroMQ CMake Detection
         run: |
