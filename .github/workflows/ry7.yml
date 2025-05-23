@@ -2,9 +2,9 @@ name: Build Ry11
 
 on:
   push:
-    branches: [ dev ]
+    branches: [ dev3 ]
   pull_request:
-    branches: [ dev ]
+    branches: [ dev3 ]
   workflow_dispatch:
 
 jobs:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: dev
+          ref: dev3
           submodules: recursive
 
       - name: Install Homebrew dependencies
