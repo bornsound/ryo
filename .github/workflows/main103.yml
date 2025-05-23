@@ -86,9 +86,9 @@ jobs:
           git clone https://github.com/zeromq/cppzmq.git
           cd cppzmq
           git checkout v4.9.0
+          sudo mkdir -p /usr/local/include
           sudo cp zmq.hpp /usr/local/include/
-          echo "ZMQ_INCLUDE_DIR=/usr/local/include" >> $GITHUB_ENV
-          echo "ZMQ_LIBRARY=/usr/local/lib/libzmq.a" >> $GITHUB_ENV
+          ls -l /usr/local/include/zmq.hpp || { echo "Error: zmq.hpp not found in51 /usr/local/include"; exit 1; }
 
       - name: Install Boost 1.75 (static) with Clang
         run: |
@@ -145,15 +145,13 @@ jobs:
           echo "CLANG_DIR=$CLANG_DIR_ABS" >> $GITHUB_ENV
           echo "$CLANG_DIR_ABS/bin" >> $GITHUB_PATH
           $CLANG_DIR_ABS/bin/clang++ --version
-          ls -l $CLANG_DIR_ABS/bin/clang
-          ls -l $CLANG_DIR_ABS/bin/clang++
-
 
       - name: Validate dependency paths
         run: |
           test -f $HOME/openssl-1.1.1/lib/libcrypto.a || { echo "libcrypto.a not found"; exit 1; }
           test -f $HOME/zeromq/lib/libzmq.a || { echo "libzmq.a not found"; exit 1; }
           test -f /usr/local/lib/libunbound.a || { echo "libunbound.a not found"; exit 1; }
+          test -f /usr/local/include/zmq.hpp || { echo "zmq.hpp not found"; exit 1; }
 
       - name: Configure CMake for static build (Clang 7)
         run: |
@@ -174,8 +172,8 @@ jobs:
             -DCMAKE_OSX_ARCHITECTURES=x86_64 \
             -DUNBOUND_INCLUDE_DIR=/usr/local/include \
             -DUNBOUND_LIBRARY=/usr/local/lib/libunbound.a \
-            -DZMQ_INCLUDE_DIR=${{ env.ZMQ_INCLUDE_DIR }} \
-            -DZMQ_LIBRARY=${{ env.ZMQ_LIBRARY }} \
+            -DZMQ_INCLUDE_DIR=$HOME/zeromq/include;/usr/local/include \
+            -DZMQ_LIBRARY=$HOME/zeromq/lib/libzmq.a \
             -DREADLINE_ROOT=${{ env.READLINE_ROOT }} \
             -DReadline_INCLUDE_DIR=/usr/local/opt/readline/include \
             -DReadline_LIBRARY=/usr/local/opt/readline/lib/libreadline.a \
@@ -218,4 +216,3 @@ jobs:
           cat build/CMakeFiles/CMakeOutput.log || true
           cat build/CMakeFiles/CMakeError.log || true
           find build -name "CMake*.log" -exec cat {} \;
-          $CLANG_DIR/bin/clang++ --version
