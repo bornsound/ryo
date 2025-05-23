@@ -90,13 +90,13 @@ jobs:
           sudo cp zmq.hpp /usr/local/include/
           ls -l /usr/local/include/zmq.hpp || { echo "Error: zmq.hpp not found in51 /usr/local/include"; exit 1; }
 
-      - name: Install Boost 1.75 (static) with Clang
+      - name: Build and install Boost 1.75 (static)
         run: |
           curl -L https://archives.boost.io/release/1.75.0/source/boost_1_75_0.tar.gz -o boost_1_75_0.tar.gz
           tar -xzf boost_1_75_0.tar.gz
           cd boost_1_75_0
           ./bootstrap.sh --prefix=$HOME/boost-1.75 --with-toolset=clang
-          ./b2 -j$(sysctl -n hw.ncpu) --without-python link=static runtime-link=static toolset=clang install
+          ./b2 -j$(sysctl -n hw.ncpu) --without-python cxxflags="-std=gnu++14" link=static runtime-link=static toolset=clang install
           echo "BOOST_ROOT=$HOME/boost-1.75" >> $GITHUB_ENV
           echo "CMAKE_PREFIX_PATH=$HOME/boost-1.75:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
 
@@ -106,6 +106,7 @@ jobs:
             brew install boost
             echo "BOOST_ROOT=/usr/local/opt/boost" >> $GITHUB_ENV
             echo "CMAKE_PREFIX_PATH=/usr/local/opt/boost:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
+          fi
           fi
 
       - name: Set macOS deployment target to 10.15
