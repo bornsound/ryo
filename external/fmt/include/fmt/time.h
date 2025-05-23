@@ -11,20 +11,22 @@
 #include "format.h"
 #include <ctime>
 
+namespace fmt { namespace v11 { namespace internal {
+template <typename T = void> struct null {};
+}}}
+// Define FMT_NULL as nullptr
+#ifndef FMT_NULL
+#define FMT_NULL nullptr
+#endif
+
 FMT_BEGIN_NAMESPACE
 
-namespace internal {
-// Define null template for platform-specific fallbacks
-template <typename... Args>
-struct null {};
+namespace internal{
 inline null<> localtime_r(...) { return null<>(); }
 inline null<> localtime_s(...) { return null<>(); }
 inline null<> gmtime_r(...) { return null<>(); }
 inline null<> gmtime_s(...) { return null<>(); }
 }
-
-// Define FMT_NULL macro
-#define FMT_NULL nullptr
 
 // Thread-safe replacement for std::localtime
 inline std::tm localtime(std::time_t time) {
