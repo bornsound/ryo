@@ -12,6 +12,21 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: dev1
+          submodules: recursive
+
+      - name: Verify CMakeLists.txt presence
+        run: |
+          if [ ! -f "CMakeLists.txt" ]; then
+            echo "Error: CMakeLists.txt not found in the repository root!"
+            ls -la
+            git ls-files
+            exit 1
+          fi
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
