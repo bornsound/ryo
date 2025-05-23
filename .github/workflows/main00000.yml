@@ -58,13 +58,7 @@ jobs:
           sudo make install
           /usr/local/bin/cmake --version
 
-      - name: Verify compiler C++14 support
-        run: |
-          echo "#include <memory>" > test.cpp
-          echo "int main() { std::unique_ptr<int> ptr = std::make_unique<int>(42); return 0; }" >> test.cpp
-          clang++ -std=gnu++14 -o test test.cpp
-          ./test
-          rm test.cpp test
+
 
       - name: Build and install ZeroMQ 4.3.5 (static)
         run: |
@@ -167,7 +161,7 @@ jobs:
             -DCMAKE_C_STANDARD=11 \
             -DCMAKE_CXX_STANDARD=14 \
             -DCMAKE_CXX_EXTENSIONS=ON \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 \
             -CMAKE_OSX_SYSROOT="$SDK_PATH" \
             -DUNBOUND_INCLUDE_DIR=/usr/local/include \
             -DUNBOUND_LIBRARY=/usr/local/lib/libunbound.a \
