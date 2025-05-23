@@ -82,17 +82,33 @@ jobs:
           $CLANG_DIR/bin/clang --version
           $CLANG_DIR/bin/clang++ --version
 
+      - name: Download and install macOS 10.15 SDK
+        run: |
+          curl -L -o MacOSX10.15.sdk.tar.xz https://github.com/phracker/MacOSX-SDKs/releases/download/10.15/MacOSX10.15.sdk.tar.xz
+          sudo tar -xf MacOSX10.15.sdk.tar.xz -C /Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/ || \
+            { echo "Error: SDK extraction failed"; exit 1; }
+          if [ ! -d "/Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk" ]; then
+            echo "Error: macOS 10.15 SDK not found"
+            exit 1
+          fi
+          echo "SDK_PATH=/Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk" >> $GITHUB_ENV
+
+      - name: Verify SDK Path
+        run: |
+          echo "SDK_PATH is ${{ env.SDK_PATH }}"
+          ls -l ${{ env.SDK_PATH }}
+
       - name: Build and install ZeroMQ 4.3.5 (static)
         run: |
           curl -L https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz -o zeromq-4.3.5.tar.gz
           tar -xzf zeromq-4.3.5.tar.gz
           cd zeromq-4.3.5
           sed -i '' '/#define CLOCK_REALTIME 0/d' src/clock.hpp || true
-          ./configure --prefix=/usr/local --enable-static --disable-shared --disable-tipc \
-            --with-pkgconfig-dir=/usr/local/lib/pkgconfig \
+          ./configure --prefix=/usr/local --enable-static --disable-shared \
             CC=clang CXX=clang++ \
-            CFLAGS="-Wno-error -Wno-error=packed-not-aligned" \
-            CXXFLAGS="-std=gnu++14 -Wno-error -Wno-error=packed-not-aligned" \
+            CFLAGS="-mmacosx-version-min=10.15 -isysroot ${{ env.SDK_PATH }} -Wno-error -Wno-error=packed-not-aligned" \
+            CXXFLAGS="-mmacosx-version-min=10.15 -isysroot ${{ env.SDK_PATH }} -std=gnu++14 -Wno-error -Wno-error=packed-not-aligned" \
+            LDFLAGS="-mmacosx-version-min=10.15 -isysroot ${{ env.SDK_PATH }}" \
             PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
           make -j$(sysctl -n hw.ncpu)
           sudo make install
@@ -126,7 +142,7 @@ jobs:
           tar -xzf boost_1_75_0.tar.gz
           cd boost_1_75_0
           ./bootstrap.sh --prefix=$HOME/boost-1.75 --with-toolset=clang
-          ./b2 -j$(sysctl -n hw.ncpu) --without-python cxxflags="-std=gnu++14" link=static runtime-link=static toolset=clang install
+          ./b2 -j$(sysctl -n hw.ncpu) --without-python cxxflags="-std=gnu++14 -mmacosx-version-min=10.15 -isysroot ${{ env.SDK_PATH }}" link=static runtime-link=static toolset=clang install
           echo "BOOST_ROOT=$HOME/boost-1.75" >> $GITHUB_ENV
           echo "CMAKE_PREFIX_PATH=$HOME/boost-1.75:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
 
@@ -141,28 +157,6 @@ jobs:
       - name: Set macOS deployment target to 10.15
         run: |
           echo "MACOSX_DEPLOYMENT_TARGET=10.15" >> $GITHUB_ENV
-
-      - name: Download and install macOS 10.15 SDK
-        run: |
-          curl -L -o MacOSX10.15.sdk.tar.xz https://github.com/phracker/MacOSX-SDKs/releases/download/10.15/MacOSX10.15.sdk.tar.xz
-          sudo tar -xf MacOSX10.15.sdk.tar.xz -C /Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/ || \
-            echo "Warning: SDK extraction failed, attempting to use default SDK"
-          if [ ! -d "/Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk" ]; then
-            echo "macOS 10.15 SDK not found, falling back to default SDK"
-            echo "SDK_PATH=/Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk" >> $GITHUB_ENV
-          else
-            echo "SDK_PATH=/Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk" >> $GITHUB_ENV
-          fi
-
-      - name: Verify SDK Path
-        run: |
-          echo "SDK_PATH is ${{ env.SDK_PATH }}"
-          ls -l ${{ env.SDK_PATH }}
-
-      - name: Detect macOS SDK path
-        id: sdkpath
-        run: |
-          echo "path=${{ env.SDK_PATH }}" >> $GITHUB_OUTPUT
 
       - name: Validate dependency paths
         run: |
@@ -258,3 +252,4 @@ jobs:
           cat build/CMakeFiles/CMakeOutput.log || true
           cat build/CMakeFiles/CMakeError.log || true
           find build -name "CMake*.log" -exec cat {} \;
+          cat zeromq-4.3.5/config.log || true
