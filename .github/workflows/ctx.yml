@@ -100,10 +100,10 @@ jobs:
 
       - name: Fallback to Homebrew Boost
         run: |
-          if [ ! -f "$HOME/boost-1.72/lib/libboost_system.a" ]; then
-            brew install boost@1.72
-            echo "BOOST_ROOT=/usr/local/opt/boost@1.72" >> $GITHUB_ENV
-            echo "CMAKE_PREFIX_PATH=/usr/local/opt/boost@1.72:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
+          if [ ! -f "$HOME/boost-1.75/lib/libboost_system.a" ]; then
+            brew install boost@1.75
+            echo "BOOST_ROOT=/usr/local/opt/boost@1.75" >> $GITHUB_ENV
+            echo "CMAKE_PREFIX_PATH=/usr/local/opt/boost@1.75:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
           fi
 
       - name: Set macOS deployment target to 10.15
