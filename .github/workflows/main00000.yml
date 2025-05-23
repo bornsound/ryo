@@ -107,7 +107,6 @@ jobs:
             echo "BOOST_ROOT=/usr/local/opt/boost" >> $GITHUB_ENV
             echo "CMAKE_PREFIX_PATH=/usr/local/opt/boost:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
           fi
-          fi
 
       - name: Set macOS deployment target to 10.15
         run: echo "MACOSX_DEPLOYMENT_TARGET=10.15" >> $GITHUB_ENV
