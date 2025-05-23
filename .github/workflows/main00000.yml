@@ -58,80 +58,6 @@ jobs:
           sudo make install
           /usr/local/bin/cmake --version
 
-      - name: Build and install ZeroMQ 4.3.5 (static)
-        run: |
-          curl -L https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz -o zeromq-4.3.5.tar.gz
-          tar -xzf zeromq-4.3.5.tar.gz
-          cd zeromq-4.3.5
-          sed -i '' '/#define CLOCK_REALTIME 0/d' src/clock.hpp || true
-          ./configure --prefix=$HOME/zeromq --enable-static --disable-shared --disable-tipc \
-            CC=clang CXX=clang++ \
-            CFLAGS="-Wno-error -Wno-error=packed-not-aligned" \
-            CXXFLAGS="-std=gnu++14 -Wno-error -Wno-error=packed-not-aligned"
-          make -j$(sysctl -n hw.ncpu)
-          make install
-          echo "ZMQ_INCLUDE_DIR=$HOME/zeromq/include" >> $GITHUB_ENV
-          echo "ZMQ_LIBRARY=$HOME/zeromq/lib/libzmq.a" >> $GITHUB_ENV
-
-      - name: Verify ZeroMQ Installation
-        run: |
-          ls -l $HOME/zeromq/lib/libzmq.a
-          ls -l $HOME/zeromq/include/zmq.h
-          echo "ZMQ_LIBRARY=$ZMQ_LIBRARY"
-          echo "ZMQ_INCLUDE_DIR=$ZMQ_INCLUDE_DIR"
-
-      - name: Install cppzmq
-        run: |
-          git clone https://github.com/zeromq/cppzmq.git
-          cd cppzmq
-          git checkout v4.9.0
-          sudo mkdir -p /usr/local/include
-          sudo cp zmq.hpp /usr/local/include/
-          ls -l /usr/local/include/zmq.hpp || { echo "Error: zmq.hpp not found in /usr/local/include"; exit 1; }
-
-      - name: Build and install Boost 1.75 (static)
-        run: |
-          curl -L https://archives.boost.io/release/1.75.0/source/boost_1_75_0.tar.gz -o boost_1_75_0.tar.gz
-          tar -xzf boost_1_75_0.tar.gz
-          cd boost_1_75_0
-          ./bootstrap.sh --prefix=$HOME/boost-1.75 --with-toolset=clang
-          ./b2 -j$(sysctl -n hw.ncpu) --without-python cxxflags="-std=gnu++14" link=static runtime-link=static toolset=clang install
-          echo "BOOST_ROOT=$HOME/boost-1.75" >> $GITHUB_ENV
-          echo "CMAKE_PREFIX_PATH=$HOME/boost-1.75:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
-
-      - name: Fallback to Homebrew Boost
-        run: |
-          if [ ! -f "$HOME/boost-1.75/lib/libboost_system.a" ]; then
-            brew install boost
-            echo "BOOST_ROOT=/usr/local/opt/boost" >> $GITHUB_ENV
-            echo "CMAKE_PREFIX_PATH=/usr/local/opt/boost:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
-          fi
-
-      - name: Set macOS deployment target to 10.15
-        run: echo "MACOSX_DEPLOYMENT_TARGET=10.15" >> $GITHUB_ENV
-
-      - name: Download and install macOS 10.15 SDK
-        run: |
-          curl -L -o MacOSX10.15.sdk.tar.xz https://github.com/phracker/MacOSX-SDKs/releases/download/10.15/MacOSX10.15.sdk.tar.xz
-          sudo tar -xf MacOSX10.15.sdk.tar.xz -C /Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/ || \
-            echo "Warning: SDK extraction failed, attempting to use default SDK"
-          if [ ! -d "/Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk" ]; then
-            echo "macOS 10.15 SDK not found, falling back to default SDK"
-            echo "SDK_PATH=/Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk" >> $GITHUB_ENV
-          else
-            echo "SDK_PATH=/Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk" >> $GITHUB_ENV
-          fi
-
-      - name: Verify SDK Path
-        run: |
-          echo "SDK_PATH is ${{ env.SDK_PATH }}"
-          ls -l ${{ env.SDK_PATH }}
-
-      - name: Detect macOS SDK path
-        id: sdkpath
-        run: |
-          echo "path=${{ env.SDK_PATH }}" >> $GITHUB_OUTPUT
-
       - name: Install Clang 7.0.1
         run: |
           curl -L https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz -o clang7.tar.xz
@@ -155,12 +81,111 @@ jobs:
           $CLANG_DIR/bin/clang --version
           $CLANG_DIR/bin/clang++ --version
 
+      - name: Build and install ZeroMQ 4.3.5 (static)
+        run: |
+          curl -L https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz -o zeromq-4.3.5.tar.gz
+          tar -xzf zeromq-4.3.5.tar.gz
+          cd zeromq-4.3.5
+          sed -i '' '/#define CLOCK_REALTIME 0/d' src/clock.hpp || true
+          ./configure --prefix=/usr/local --enable-static --disable-shared --disable-tipc \
+            --with-pkgconfig-dir=/usr/local/lib/pkgconfig \
+            CC=$CLANG_DIR/bin/clang CXX=$CLANG_DIR/bin/clang++ \
+            CFLAGS="-Wno-error -Wno-error=packed-not-aligned" \
+            CXXFLAGS="-std=gnu++14 -Wno-error -Wno-error=packed-not-aligned" \
+            PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+          make -j$(sysctl -n hw.ncpu)
+          sudo make install
+          sudo chmod 644 /usr/local/lib/libzmq.a /usr/local/lib/pkgconfig/libzmq.pc
+          echo "ZMQ_INCLUDE_DIR=/usr/local/include" >> $GITHUB_ENV
+          echo "ZMQ_LIBRARY=/usr/local/lib/libzmq.a" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
+
+      - name: Verify ZeroMQ Installation
+        run: |
+          ls -l /usr/local/lib/libzmq.a
+          ls -l /usr/local/include/zmq.h
+          ls -l /usr/local/lib/pkgconfig/libzmq.pc
+          echo "ZMQ_LIBRARY=$ZMQ_LIBRARY"
+          echo "ZMQ_INCLUDE_DIR=$ZMQ_INCLUDE_DIR"
+          pkg-config --libs --cflags libzmq || { echo "pkg-config failed for libzmq"; exit 1; }
+
+      - name: Install cppzmq
+        run: |
+          git clone https://github.com/zeromq/cppzmq.git
+          cd cppzmq
+          git checkout v4.9.0
+          sudo mkdir -p /usr/local/include
+          sudo cp zmq.hpp /usr/local/include/
+          sudo chmod 644 /usr/local/include/zmq.hpp
+          ls -l /usr/local/include/zmq.hpp || { echo "Error: zmq.hpp not found in /usr/local/include"; exit 1; }
+
+      - name: Build and install Boost 1.75 (static)
+        run: |
+          curl -L https://archives.boost.io/release/1.75.0/source/boost_1_75_0.tar.gz -o boost_1_75_0.tar.gz
+          tar -xzf boost_1_75_0.tar.gz
+          cd boost_1_75_0
+          ./bootstrap.sh --prefix=$HOME/boost-1.75 --with-toolset=clang
+          ./b2 -j$(sysctl -n hw.ncpu) --without-python cxxflags="-std=gnu++14" link=static runtime-link=static toolset=clang install
+          echo "BOOST_ROOT=$HOME/boost-1.75" >> $GITHUB_ENV
+          echo "CMAKE_PREFIX_PATH=$HOME/boost-1.75:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
+
+      - name: Fallback to Homebrew Boost
+        run: |
+          if [ ! -f "$HOME/boost-1.75/lib/libboost_system.a" ]; then
+            brew install boost
+            echo "BOOST_ROOT=/usr/local/opt/boost" >> $GITHUB_ENV
+            echo "CMAKE_PREFIX_PATH=/usr/local/opt/boost:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
+          fi
+
+      - name: Set macOS deployment target to 10.15
+        run: |
+          echo "MACOSX_DEPLOYMENT_TARGET=10.15" >> $GITHUB_ENV
+
+      - name: Download and install macOS 10.15 SDK
+        run: |
+          curl -L -o MacOSX10.15.sdk.tar.xz https://github.com/phracker/MacOSX-SDKs/releases/download/10.15/MacOSX10.15.sdk.tar.xz
+          sudo tar -xf MacOSX10.15.sdk.tar.xz -C /Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/ || \
+            echo "Warning: SDK extraction failed, attempting to use default SDK"
+          if [ ! -d "/Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk" ]; then
+            echo "macOS 10.15 SDK not found, falling back to default SDK"
+            echo "SDK_PATH=/Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk" >> $GITHUB_ENV
+          else
+            echo "SDK_PATH=/Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk" >> $GITHUB_ENV
+          fi
+
+      - name: Verify SDK Path
+        run: |
+          echo "SDK_PATH is ${{ env.SDK_PATH }}"
+          ls -l ${{ env.SDK_PATH }}
+
+      - name: Detect macOS SDK path
+        id: sdkpath
+        run: |
+          echo "path=${{ env.SDK_PATH }}" >> $GITHUB_OUTPUT
+
       - name: Validate dependency paths
         run: |
           test -f $HOME/openssl-1.1.1/lib/libcrypto.a || { echo "libcrypto.a not found"; exit 1; }
-          test -f $HOME/zeromq/lib/libzmq.a || { echo "libzmq.a not found"; exit 1; }
+          test -f /usr/local/lib/libzmq.a || { echo "libzmq.a not found"; exit 1; }
           test -f /usr/local/lib/libunbound.a || { echo "libunbound.a not found"; exit 1; }
           test -f /usr/local/include/zmq.hpp || { echo "zmq.hpp not found"; exit 1; }
+
+      - name: Test ZeroMQ Detection
+        run: |
+          mkdir -p test_zmq
+          cd test_zmq
+          echo "cmake_minimum_required(VERSION 3.10)" > CMakeLists.txt
+          echo "project(TestZMQ)" >> CMakeLists.txt
+          echo "find_package(ZeroMQ REQUIRED)" >> CMakeLists.txt
+          echo "message(STATUS \"ZeroMQ_INCLUDE_DIR: \${ZeroMQ_INCLUDE_DIR}\")" >> CMakeLists.txt
+          echo "message(STATUS \"ZeroMQ_LIBRARY: \${ZeroMQ_LIBRARY}\")" >> CMakeLists.txt
+          /usr/local/bin/cmake . -DZMQ_INCLUDE_DIR=/usr/local/include -DZMQ_LIBRARY=/usr/local/lib/libzmq.a -DZeroMQ_INCLUDE_DIR=/usr/local/include -DZeroMQ_LIBRARY=/usr/local/lib/libzmq.a -DCMAKE_PREFIX_PATH=/usr/local || { echo "ZeroMQ detection failed in test project"; exit 1; }
+
+      - name: Debug ZeroMQ CMake Detection
+        run: |
+          mkdir -p build
+          cd build
+          /usr/local/bin/cmake .. -LA | grep -i zmq || echo "No ZeroMQ variables found in CMake cache"
 
       - name: Configure CMake for static build (Clang 7)
         run: |
@@ -170,6 +195,7 @@ jobs:
           export CXX=$CLANG_DIR/bin/clang++
           export CFLAGS="-mmacosx-version-min=10.15 -isysroot ${{ env.SDK_PATH }} -march=x86-64"
           export CXXFLAGS="-mmacosx-version-min=10.15 -isysroot ${{ env.SDK_PATH }} -march=x86-64 -std=gnu++14"
+          export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
           /usr/local/bin/cmake .. \
             -DCMAKE_C_COMPILER=$CC \
             -DCMAKE_CXX_COMPILER=$CXX \
@@ -180,10 +206,15 @@ jobs:
             -DCMAKE_OSX_SYSROOT="${SDK_PATH}" \
             -DUNBOUND_INCLUDE_DIR=/usr/local/include \
             -DUNBOUND_LIBRARY=/usr/local/lib/libunbound.a \
-            -DZMQ_INCLUDE_DIR=${ZMQ_INCLUDE_DIR} \
-            -DZMQ_LIBRARY=${ZMQ_LIBRARY} \
-            -DZeroMQ_INCLUDE_DIR=${ZMQ_INCLUDE_DIR} \
-            -DZeroMQ_LIBRARY=${ZMQ_LIBRARY} \
+            -DZMQ_INCLUDE_DIR=/usr/local/include \
+            -DZMQ_LIBRARY=/usr/local/lib/libzmq.a \
+            -DZeroMQ_INCLUDE_DIR=/usr/local/include \
+            -DZeroMQ_LIBRARY=/usr/local/lib/libzmq.a \
+            -DLIBZMQ_INCLUDE_DIR=/usr/local/include \
+            -DLIBZMQ_LIBRARY=/usr/local/lib/libzmq.a \
+            -DCPPZMQ_INCLUDE_DIR=/usr/local/include \
+            -DZMQ_STATIC=ON \
+            -DCMAKE_PREFIX_PATH=/usr/local:${CMAKE_PREFIX_PATH} \
             -DREADLINE_ROOT=${READLINE_ROOT} \
             -DReadline_INCLUDE_DIR=/usr/local/opt/readline/include \
             -DReadline_LIBRARY=/usr/local/opt/readline/lib/libreadline.a \
@@ -192,7 +223,6 @@ jobs:
             -DOPENSSL_CRYPTO_LIBRARY=$HOME/openssl-1.1.1/lib/libcrypto.a \
             -DOPENSSL_SSL_LIBRARY=$HOME/openssl-1.1.1/lib/libssl.a \
             -DBoost_ROOT=${BOOST_ROOT} \
-            -DCMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH}" \
             -DBoost_USE_STATIC_LIBS=ON \
             -DCMAKE_BUILD_TYPE=Release \
             -DSTATIC=ON \
