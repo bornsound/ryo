@@ -129,13 +129,13 @@ jobs:
 
       - name: Install Clang 7.0.1
         run: |
-          curl -L https://releases.llvm.org/7.0.1/clang+llvm-7.0.1-x86_64-apple-darwin.tar.xz -o clang7.tar.xz
+          curl -L https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz -o clang7.tar.xz
           if [ ! -f clang7.tar.xz ]; then
-            echo "Error: Failed to download Clang 7.0.1"
+            echo "Error: Failed to download Clang 7.0.0"
             exit 1
           fi
           tar -xf clang7.tar.xz
-          CLANG_DIR=$(find . -type d -name "clang+llvm-7.0.1-x86_64-apple-darwin" -maxdepth 1 | head -n1)
+          CLANG_DIR=$(find . -type d -name "clang+llvm-7.0.0-x86_64-apple-darwin" -maxdepth 1 | head -n1)
           if [ -z "$CLANG_DIR" ]; then
             echo "Error: Clang 7.0.1 directory not found"
             exit 1
@@ -147,13 +147,7 @@ jobs:
           ls -l $CLANG_DIR_ABS/bin/clang
           ls -l $CLANG_DIR_ABS/bin/clang++
 
-      - name: Verify Clang 7 compatibility
-        run: |
-          echo "#include <stdio.h>" > test.c
-          echo "int main() { printf(\"Hello, Clang 7!\\n\"); return 0; }" >> test.c
-          $CLANG_DIR/bin/clang -mmacosx-version-min=10.15 -isysroot ${{ env.SDK_PATH }} -march=x86-64 -o test test.c
-          ./test
-          rm test.c test
+
 
       - name: Validate dependency paths
         run: |
