@@ -15,7 +15,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libunbound-dev libsodium-dev libminiupnpc-dev libhidapi-dev libreadline-dev cmake libexpat1-dev libunwind-dev libpgm-dev doxygen graphviz libblake3-dev libfmt-dev libhiredis-dev libxxhash-dev ccache
+          sudo apt-get install -y build-essential pkg-config libunbound-dev libsodium-dev libminiupnpc-dev libhidapi-dev libreadline-dev cmake libexpat1-dev libunwind-dev libpgm-dev doxygen graphviz libfmt-dev libhiredis-dev libxxhash-dev ccache
           echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
 
       - name: Install OpenSSL 1.1.1
