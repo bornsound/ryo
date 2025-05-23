@@ -12,40 +12,14 @@ jobs:
     runs-on: macos-13
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-
-    - name: Install MacPorts 2.10.7 for macOS 13 (Ventura)
+    - name: Install GCC 8
       run: |
-        curl -L -o MacPorts-2.10.7-13-Ventura.pkg https://github.com/macports/macports-base/releases/download/v2.10.7/MacPorts-2.10.7-13-Ventura.pkg
-        sudo installer -pkg MacPorts-2.10.7-13-Ventura.pkg -target /
-
-    - name: Update MacPorts and install gcc7
-      id: install_gcc7
-      continue-on-error: true
-      run: |
-        sudo /opt/local/bin/port -v selfupdate
-        sudo /opt/local/bin/port install gcc7
-
-    - name: Fallback to gcc13 or gcc12 if gcc7 fails
-      if: steps.install_gcc7.outcome == 'failure'
-      run: |
-        echo "gcc7 failed, trying gcc13..."
-        sudo /opt/local/bin/port install gcc13 || sudo /opt/local/bin/port install gcc12
-
-    - name: Display installed MacPorts GCC versions
-      run: |
-        ls /opt/local/bin | grep gcc-mp || true
-
-    - name: Create hello.c
-      run: |
-        echo '#include <stdio.h>' > hello.c
-        echo 'int main() { printf("Hello from MacPorts GCC!\\n"); return 0; }' >> hello.c
-
-    - name: Compile with available MacPorts GCC
-      run: |
-        export PATH="/opt/local/bin:$PATH"
-        gcc-mp-7 hello.c -o hello || gcc-mp-13 hello.c -o hello || gcc-mp-12 hello.c -o hello
+       brew install gcc@8
+       ls -l /usr/local/bin/gcc-8 || { echo "GCC 8 binary not found"; exit 1; }
+       ls -l /usr/local/bin/g++-8 || { echo "G++ 8 binary not found"; exit 1; }
+       /usr/local/bin/gcc-8 --version || { echo "GCC 8 version check failed"; exit 1; }
+       /usr/local/bin/g++-8 --version || { echo "G++ 8 version check failed"; exit 1; }
+       echo "/usr/local/bin" >> $GITHUB_PATH
 
     - name: Run compiled binary
       run: ./hello
