@@ -2,9 +2,9 @@ name: may1
 
 on:
   push:
-    branches: [ dev ]
+    branches: [ dev1 ]
   pull_request:
-    branches: [ dev ]
+    branches: [ dev1 ]
   workflow_dispatch:
 
 jobs:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: dev
+          ref: dev1
           submodules: recursive
 
       - name: Install Homebrew dependencies
@@ -103,7 +103,7 @@ jobs:
           if [ ! -f "$HOME/boost-1.75/lib/libboost_system.a" ]; then
             brew install boost@1.75
             echo "BOOST_ROOT=/usr/local/opt/boost@1.75" >> $GITHUB_ENV
-            echo "CMAKE_PREFIX_PATH=/usr/local/opt/boost@1.72:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
+            echo "CMAKE_PREFIX_PATH=/usr/local/opt/boost@1.75:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
           fi
 
       - name: Set macOS deployment target to 10.15
@@ -123,44 +123,26 @@ jobs:
 
       - name: Install Clang 7
         run: |
-          # Download Clang 7 tarball
           curl -L https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz -o clang+llvm-7.0.0.tar.xz
-          
-          # Verify tarball download
           ls -l clang+llvm-7.0.0.tar.xz || { echo "Tarball download failed"; exit 1; }
-          
-          # Extract tarball
           tar -xJf clang+llvm-7.0.0.tar.xz
-          
-          # Verify extracted directory
           ls -ld clang+llvm-7.0.0-x86_64-apple-darwin || { echo "Extracted directory not found"; exit 1; }
-          
-          # Move to /opt/clang-7
           sudo mkdir -p /opt/clang-7
           sudo mv clang+llvm-7.0.0-x86_64-apple-darwin/* /opt/clang-7/ || { echo "Failed to move Clang 7 files"; exit 1; }
-          
-          # Verify binary existence and permissions
           ls -l /opt/clang-7/bin/ || { echo "Clang 7 bin directory not found"; exit 1; }
           ls -l /opt/clang-7/bin/clang || ls -l /opt/clang-7/bin/clang-7 || { echo "Clang 7 binary not found"; exit 1; }
           ls -l /opt/clang-7/bin/clang++ || ls -l /opt/clang-7/bin/clang++-7 || { echo "Clang++ 7 binary not found"; exit 1; }
-          
-          # Ensure binaries are executable
           sudo chmod +x /opt/clang-7/bin/* || { echo "Failed to set executable permissions"; exit 1; }
-          
-          # Add Clang 7 to PATH
           echo "/opt/clang-7/bin" >> $GITHUB_PATH
-          
-          # Verify Clang 7 installation
           /opt/clang-7/bin/clang --version || /opt/clang-7/bin/clang-7 --version || { echo "Clang 7 version check failed"; exit 1; }
           /opt/clang-7/bin/clang++ --version || /opt/clang-7/bin/clang++-7 --version || { echo "Clang++ 7 version check failed"; exit 1; }
-          
-          # Print target and thread model for confirmation
           /opt/clang-7/bin/clang --version | grep Target || true
 
-      - name: Configure CMake for static build (Clang 10)
+      - name: Configure CMake for static build (Clang 7)
         run: |
           mkdir -p build
           cd build
+          export CLANG_DIR=/opt/clang-7
           export CC=$CLANG_DIR/bin/clang
           export CXX=$CLANG_DIR/bin/clang++
           export CFLAGS="-mmacosx-version-min=10.15 -isysroot ${{ env.SDK_PATH }} -march=x86-64"
@@ -192,9 +174,9 @@ jobs:
             -DUSE_SINGLE_BUILDDIR=1 \
             -DARCH=x86-64 \
             -DCMAKE_POLICY_DEFAULT_CMP0057=NEW \
-            -DBUILD_64=ON 
-            
-      - name: Build Ryo (release-static-mac-x86_64 with Clang 10)
+            -DBUILD_64=ON
+
+      - name: Build Ryo (release-static-mac-x86_64 with Clang 7)
         run: |
           cd build
           make -j$(sysctl -n hw.ncpu)
@@ -208,7 +190,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ryo-binaries-clang10
+          name: ryo-binaries-clang7
           path: build/release/bin/
 
       - name: Print CMake logs and compiler info on failure
@@ -217,4 +199,4 @@ jobs:
           cat build/CMakeFiles/CMakeOutput.log || true
           cat build/CMakeFiles/CMakeError.log || true
           find build -name "CMake*.log" -exec cat {} \;
-          $CLANG_DIR/bin/clang++ --version
+          /opt/clang-7/bin/clang++ --version || /opt/clang-7/bin/clang++-7 --version || true
