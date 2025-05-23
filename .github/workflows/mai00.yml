@@ -1,0 +1,54 @@
+name: Test GCC Installation via MacPorts (macOS 13)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test-gcc-macports:
+    runs-on: macos-13
+
+    steps:
+    - name: Install MacPorts
+      run: |
+        # Download MacPorts 2.10.7 for macOS 13 Ventura
+        curl -L https://github.com/macports/macports-base/releases/download/v2.10.7/MacPorts-2.10.7-13-Ventura.pkg -o MacPorts.pkg
+        ls -l MacPorts.pkg || { echo "MacPorts package download failed"; exit 1; }
+        # Install MacPorts
+        sudo installer -pkg MacPorts.pkg -target /
+        # Verify MacPorts installation
+        ls -l /opt/local/bin/port || { echo "MacPorts binary not found"; exit 1; }
+        /opt/local/bin/port version || { echo "MacPorts version check failed"; exit 1; }
+        # Update MacPorts and add to PATH
+        sudo /opt/local/bin/port selfupdate
+        echo "/opt/local/bin:/opt/local/sbin" >> $GITHUB_PATH
+
+    - name: Install GCC 8
+      run: |
+        # Install gcc8 via MacPorts
+        sudo /opt/local/bin/port install gcc8
+        # Verify GCC 8 binaries
+        ls -l /opt/local/bin/gcc-mp-8 || { echo "GCC 8 binary not found"; exit 1; }
+        ls -l /opt/local/bin/g++-mp-8 || { echo "G++ 8 binary not found"; exit 1; }
+        /opt/local/bin/gcc-mp-8 --version || { echo "GCC 8 version check failed"; exit 1; }
+        /opt/local/bin/g++-mp-8 --version || { echo "G++ 8 version check failed"; exit 1; }
+        # Set GCC 8 as default
+        sudo /opt/local/bin/port select --set gcc mp-gcc8
+        ls -l /opt/local/bin/gcc || { echo "GCC 8 symlink not found"; exit 1; }
+        ls -l /opt/local/bin/g++ || { echo "G++ 8 symlink not found"; exit 1; }
+        /opt/local/bin/gcc --version || { echo "GCC 8 default version check failed"; exit 1; }
+        /opt/local/bin/g++ --version || { echo "G++ 8 default version check failed"; exit 1; }
+
+    - name: Compile hello program
+      run: |
+        # Create and compile a hello.c program
+        echo '#include <stdio.h>' > hello.c
+        echo 'int main() { printf("Hello, World!\\n"); return 0; }' >> hello.c
+        /opt/local/bin/gcc-mp-8 -o hello hello.c
+        ls -l hello || { echo "Failed to compile hello program"; exit 1; }
+
+    - name: Run compiled binary
+      run: ./hello
