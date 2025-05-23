@@ -163,27 +163,26 @@ jobs:
           export CFLAGS="-mmacosx-version-min=10.15 -isysroot ${{ env.SDK_PATH }} -march=x86-64"
           export CXXFLAGS="-mmacosx-version-min=10.15 -isysroot ${{ env.SDK_PATH }} -march=x86-64 -std=gnu++14"
           /usr/local/bin/cmake .. \
-            -DCMAKE_C_COMPILER=$CC \
-            -DCMAKE_CXX_COMPILER=$CXX \
+            -DCMAKE_C_COMPILER="$CC" \
+            -DCMAKE_CXX_COMPILER="$CXX" \
             -DCMAKE_C_STANDARD=11 \
             -DCMAKE_CXX_STANDARD=14 \
             -DCMAKE_CXX_EXTENSIONS=ON \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 \
-            -DCMAKE_OSX_SYSROOT=${{ env.SDK_PATH }} \
-            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
+            -CMAKE_OSX_SYSROOT="$SDK_PATH" \
             -DUNBOUND_INCLUDE_DIR=/usr/local/include \
             -DUNBOUND_LIBRARY=/usr/local/lib/libunbound.a \
-            -DZMQ_INCLUDE_DIR=$HOME/zeromq/include;/usr/local/include \
-            -DZMQ_LIBRARY=$HOME/zeromq/lib/libzmq.a \
-            -DREADLINE_ROOT=${{ env.READLINE_ROOT }} \
+            -DZMQ_INCLUDE_DIR=${ZMQ_INCLUDE_DIR} \
+            -DZMQ_LIBRARY=${ZMQ_LIBRARY} \
+            -DREADLINE_ROOT=${READLINE_ROOT} \
             -DReadline_INCLUDE_DIR=/usr/local/opt/readline/include \
             -DReadline_LIBRARY=/usr/local/opt/readline/lib/libreadline.a \
-            -DOPENSSL_ROOT_DIR=${{ env.OPENSSL_ROOT_DIR }} \
-            -DOPENSSL_INCLUDE_DIR=$HOME/openssl-1.1.1/include \
-            -DOPENSSL_CRYPTO_LIBRARY=$HOME/openssl-1.1.1/lib/libcrypto.a \
-            -DOPENSSL_SSL_LIBRARY=$HOME/openssl-1.1.1/lib/libssl.a \
-            -DBOOST_ROOT=${{ env.BOOST_ROOT }} \
-            -DCMAKE_PREFIX_PATH=${{ env.CMAKE_PREFIX_PATH }} \
+            -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} \
+            -DOPENSSL_INCLUDE_DIR=/usr/local/openssl-1.1.1/include \
+            -DOPENSSL_CRYPTO_LIBRARY=/usr/local/openssl-1.1.1/lib/libcrypto.a \
+            -DOPENSSL_SSL_LIBRARY=/usr/local/openssl-1.1.1/lib/libssl.a \
+            -DBOOST_ROOT=${BOOST_ROOT} \
+            -DCMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH}" \
             -DBoost_USE_STATIC_LIBS=ON \
             -DCMAKE_BUILD_TYPE=Release \
             -DSTATIC=ON \
