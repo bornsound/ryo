@@ -62,7 +62,7 @@ jobs:
         run: |
           echo "#include <memory>" > test.cpp
           echo "int main() { std::unique_ptr<int> ptr = std::make_unique<int>(42); return 0; }" >> test.cpp
-          clang++ -std=gnu++14 -o test test.cpp
+          g++-8 -std=gnu++14 -o test test.cpp
           ./test
           rm test.cpp test
 
@@ -73,7 +73,7 @@ jobs:
           cd zeromq-4.3.5
           sed -i '' '/#define CLOCK_REALTIME 0/d' src/clock.hpp || true
           ./configure --prefix=/usr/local --enable-static --disable-shared --disable-tipc \
-            CC=clang CXX=clang++ \
+            CC=gcc-8 CXX=g++-8 \
             CFLAGS="-Wno-error -Wno-error=packed-not-aligned" \
             CXXFLAGS="-std=gnu++14 -Wno-error -Wno-error=packed-not-aligned"
           make -j$(sysctl -n hw.ncpu)
@@ -88,13 +88,13 @@ jobs:
           echo "ZMQ_INCLUDE_DIR=/usr/local/include" >> $GITHUB_ENV
           echo "ZMQ_LIBRARY=/usr/local/lib/libzmq.a" >> $GITHUB_ENV
 
-      - name: Install Boost 1.75 (static) with Clang
+      - name: Install Boost 1.75 (static) with GCC
         run: |
           curl -L https://archives.boost.io/release/1.75.0/source/boost_1_75_0.tar.gz -o boost_1_75_0.tar.gz
           tar -xzf boost_1_75_0.tar.gz
           cd boost_1_75_0
-          ./bootstrap.sh --prefix=$HOME/boost-1.75 --with-toolset=clang
-          ./b2 -j$(sysctl -n hw.ncpu) --without-python link=static runtime-link=static toolset=clang install
+          ./bootstrap.sh --prefix=$HOME/boost-1.75 --with-toolset=gcc
+          ./b2 -j$(sysctl -n hw.ncpu) --without-python link=static runtime-link=static toolset=gcc install
           echo "BOOST_ROOT=$HOME/boost-1.75" >> $GITHUB_ENV
           echo "CMAKE_PREFIX_PATH=$HOME/boost-1.75:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
 
@@ -121,48 +121,22 @@ jobs:
           echo "SDK_PATH=$SDK_PATH" >> $GITHUB_ENV
           echo "path=$SDK_PATH" >> $GITHUB_OUTPUT
 
-      - name: Install Clang 7
+      - name: Install GCC 8
         run: |
-          # Download Clang 7 tarball
-          curl -L https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz -o clang+llvm-7.0.0.tar.xz
-          
-          # Verify tarball download
-          ls -l clang+llvm-7.0.0.tar.xz || { echo "Tarball download failed"; exit 1; }
-          
-          # Extract tarball
-          tar -xJf clang+llvm-7.0.0.tar.xz
-          
-          # Verify extracted directory
-          ls -ld clang+llvm-7.0.0-x86_64-apple-darwin || { echo "Extracted directory not found"; exit 1; }
-          
-          # Move to /opt/clang-7
-          sudo mkdir -p /opt/clang-7
-          sudo mv clang+llvm-7.0.0-x86_64-apple-darwin/* /opt/clang-7/ || { echo "Failed to move Clang 7 files"; exit 1; }
-          
-          # Verify binary existence and permissions
-          ls -l /opt/clang-7/bin/ || { echo "Clang 7 bin directory not found"; exit 1; }
-          ls -l /opt/clang-7/bin/clang || ls -l /opt/clang-7/bin/clang-7 || { echo "Clang 7 binary not found"; exit 1; }
-          ls -l /opt/clang-7/bin/clang++ || ls -l /opt/clang-7/bin/clang++-7 || { echo "Clang++ 7 binary not found"; exit 1; }
-          
-          # Ensure binaries are executable
-          sudo chmod +x /opt/clang-7/bin/* || { echo "Failed to set executable permissions"; exit 1; }
-          
-          # Add Clang 7 to PATH
-          echo "/opt/clang-7/bin" >> $GITHUB_PATH
-          
-          # Verify Clang 7 installation
-          /opt/clang-7/bin/clang --version || /opt/clang-7/bin/clang-7 --version || { echo "Clang 7 version check failed"; exit 1; }
-          /opt/clang-7/bin/clang++ --version || /opt/clang-7/bin/clang++-7 --version || { echo "Clang++ 7 version check failed"; exit 1; }
-          
-          # Print target and thread model for confirmation
-          /opt/clang-7/bin/clang --version | grep Target || true
+          brew install gcc@8
+          ls -l /usr/local/bin/gcc-8 || { echo "GCC 8 binary not found"; exit 1; }
+          ls -l /usr/local/bin/g++-8 || { echo "G++ 8 binary not found"; exit 1; }
+          /usr/local/bin/gcc-8 --version || { echo "GCC 8 version check failed"; exit 1; }
+          /usr/local/bin/g++-8 --version || { echo "G++ 8 version check failed"; exit 1; }
+          echo "/usr/local/bin" >> $GITHUB_PATH
 
-      - name: Configure CMake for static build (Clang 10)
+      - name: Configure CMake for static build (GCC 8)
         run: |
           mkdir -p build
           cd build
-          export CC=$CLANG_DIR/bin/clang
-          export CXX=$CLANG_DIR/bin/clang++
+          export GCC_DIR=/usr/local
+          export CC=$GCC_DIR/bin/gcc-8
+          export CXX=$GCC_DIR/bin/g++-8
           export CFLAGS="-mmacosx-version-min=10.15 -isysroot ${{ env.SDK_PATH }} -march=x86-64"
           export CXXFLAGS="-mmacosx-version-min=10.15 -isysroot ${{ env.SDK_PATH }} -march=x86-64 -std=gnu++14"
           /usr/local/bin/cmake .. \
@@ -192,9 +166,9 @@ jobs:
             -DUSE_SINGLE_BUILDDIR=1 \
             -DARCH=x86-64 \
             -DCMAKE_POLICY_DEFAULT_CMP0057=NEW \
-            -DBUILD_64=ON 
-            
-      - name: Build Ryo (release-static-mac-x86_64 with Clang 10)
+            -DBUILD_64=ON
+
+      - name: Build Ryo (release-static-mac-x86_64 with GCC 8)
         run: |
           cd build
           make -j$(sysctl -n hw.ncpu)
@@ -208,7 +182,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ryo-binaries-clang10
+          name: ryo-binaries-gcc8
           path: build/release/bin/
 
       - name: Print CMake logs and compiler info on failure
@@ -217,4 +191,4 @@ jobs:
           cat build/CMakeFiles/CMakeOutput.log || true
           cat build/CMakeFiles/CMakeError.log || true
           find build -name "CMake*.log" -exec cat {} \;
-          $CLANG_DIR/bin/clang++ --version
+          /usr/local/bin/g++-8 --version || true
