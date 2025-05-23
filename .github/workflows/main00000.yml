@@ -2,9 +2,9 @@ name: Build Ry1113
 
 on:
   push:
-    branches: [ dev3 ]
+    branches: [ dev1 ]
   pull_request:
-    branches: [ dev3 ]
+    branches: [ dev1 ]
   workflow_dispatch:
 
 jobs:
@@ -27,7 +27,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: dev3
+          ref: dev1
           submodules: recursive
 
       - name: Install Homebrew dependencies
@@ -58,29 +58,6 @@ jobs:
           make -j$(sysctl -n hw.ncpu)
           sudo make install
           /usr/local/bin/cmake --version
-
-      - name: Install Clang 7.0.0
-        run: |
-          curl -L https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz -o clang7.tar.xz
-          if [ ! -f clang7.tar.xz ]; then
-            echo "Error: Failed to download Clang 7.0.0"
-            exit 1
-          fi
-          tar -xf clang7.tar.xz
-          CLANG_DIR=$(find . -type d -name "clang+llvm-7.0.0-x86_64-apple-darwin" -maxdepth 1 | head -n1)
-          if [ -z "$CLANG_DIR" ]; then
-            echo "Error: Clang 7.0.0 directory not found"
-            exit 1
-          fi
-          CLANG_DIR_ABS=$(realpath "$CLANG_DIR")
-          echo "CLANG_DIR=$CLANG_DIR_ABS" >> $GITHUB_ENV
-          echo "$CLANG_DIR_ABS/bin" >> $GITHUB_PATH
-          $CLANG_DIR_ABS/bin/clang++ --version
-
-      - name: Verify Clang Installation
-        run: |
-          $CLANG_DIR/bin/clang --version
-          $CLANG_DIR/bin/clang++ --version
 
       - name: Download and install macOS 10.15 SDK
         run: |
@@ -145,6 +122,7 @@ jobs:
           ./b2 -j$(sysctl -n hw.ncpu) --without-python link=static runtime-link=static toolset=clang install
           echo "BOOST_ROOT=$HOME/boost-1.75" >> $GITHUB_ENV
           echo "CMAKE_PREFIX_PATH=$HOME/boost-1.75:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
+
       - name: Fallback to Homebrew Boost
         run: |
           if [ ! -f "$HOME/boost-1.75/lib/libboost_system.a" ]; then
@@ -180,6 +158,29 @@ jobs:
           mkdir -p build
           cd build
           /usr/local/bin/cmake .. -LA | grep -i zmq || echo "No ZeroMQ variables found in CMake cache"
+
+      - name: Install Clang 7.0.0
+        run: |
+          curl -L https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz -o clang7.tar.xz
+          if [ ! -f clang7.tar.xz ]; then
+            echo "Error: Failed to download Clang 7.0.0"
+            exit 1
+          fi
+          tar -xf clang7.tar.xz
+          CLANG_DIR=$(find . -type d -name "clang+llvm-7.0.0-x86_64-apple-darwin" -maxdepth 1 | head -n1)
+          if [ -z "$CLANG_DIR" ]; then
+            echo "Error: Clang 7.0.0 directory not found"
+            exit 1
+          fi
+          CLANG_DIR_ABS=$(realpath "$CLANG_DIR")
+          echo "CLANG_DIR=$CLANG_DIR_ABS" >> $GITHUB_ENV
+          echo "$CLANG_DIR_ABS/bin" >> $GITHUB_PATH
+          $CLANG_DIR_ABS/bin/clang++ --version
+
+      - name: Verify Clang Installation
+        run: |
+          $CLANG_DIR/bin/clang --version
+          $CLANG_DIR/bin/clang++ --version
 
       - name: Configure CMake for static build (Clang 7)
         run: |
