@@ -162,8 +162,8 @@ jobs:
           export CFLAGS="-mmacosx-version-min=10.15 -isysroot ${{ env.SDK_PATH }} -march=x86-64"
           export CXXFLAGS="-mmacosx-version-min=10.15 -isysroot ${{ env.SDK_PATH }} -march=x86-64 -std=gnu++14"
           /usr/local/bin/cmake .. \
-            -DCMAKE_C_COMPILER="$CC" \
-            -DCMAKE_CXX_COMPILER="$CXX" \
+            -DCMAKE_C_COMPILER=$CC \
+            -DCMAKE_CXX_COMPILER=$CXX \
             -DCMAKE_C_STANDARD=11 \
             -DCMAKE_CXX_STANDARD=14 \
             -DCMAKE_CXX_EXTENSIONS=ON \
