@@ -12,14 +12,33 @@ jobs:
     runs-on: macos-13
 
     steps:
+    - name: Install dependencies for GCC 8
+      run: |
+        brew install gmp mpfr libmpc
+        echo "/usr/local/bin" >> $GITHUB_PATH
+
     - name: Install GCC 8
       run: |
-       brew install gcc@8
-       ls -l /usr/local/bin/gcc-8 || { echo "GCC 8 binary not found"; exit 1; }
-       ls -l /usr/local/bin/g++-8 || { echo "G++ 8 binary not found"; exit 1; }
-       /usr/local/bin/gcc-8 --version || { echo "GCC 8 version check failed"; exit 1; }
-       /usr/local/bin/g++-8 --version || { echo "G++ 8 version check failed"; exit 1; }
-       echo "/usr/local/bin" >> $GITHUB_PATH
+        curl -L https://ftp.gnu.org/gnu/gcc/gcc-8.5.0/gcc-8.5.0.tar.gz -o gcc-8.5.0.tar.gz
+        tar -xzf gcc-8.5.0.tar.gz
+        cd gcc-8.5.0
+        ./contrib/download_prerequisites
+        mkdir build && cd build
+        ../configure --prefix=/usr/local/gcc-8 --enable-languages=c,c++ --disable-multilib
+        make -j$(sysctl -n hw.ncpu)
+        sudo make install
+        ls -l /usr/local/gcc-8/bin/gcc || { echo "GCC 8 binary not found"; exit 1; }
+        ls -l /usr/local/gcc-8/bin/g++ || { echo "G++ 8 binary not found"; exit 1; }
+        /usr/local/gcc-8/bin/gcc --version || { echo "GCC 8 version check failed"; exit 1; }
+        /usr/local/gcc-8/bin/g++ --version || { echo "G++ 8 version check failed"; exit 1; }
+        echo "/usr/local/gcc-8/bin" >> $GITHUB_PATH
+
+    - name: Compile hello program
+      run: |
+        echo '#include <stdio.h>' > hello.c
+        echo 'int main() { printf("Hello, World!\\n"); return 0; }' >> hello.c
+        /usr/local/gcc-8/bin/gcc -o hello hello.c
+        ls -l hello || { echo "Failed to compile hello program"; exit 1; }
 
     - name: Run compiled binary
       run: ./hello
