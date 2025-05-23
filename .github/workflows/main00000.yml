@@ -80,14 +80,15 @@ jobs:
           make install
           echo "ZMQ_INCLUDE_DIR=$HOME/zeromq/include" >> $GITHUB_ENV
           echo "ZMQ_LIBRARY=$HOME/zeromq/lib/libzmq.a" >> $GITHUB_ENV
-
+          
       - name: Install cppzmq
         run: |
           git clone https://github.com/zeromq/cppzmq.git
           cd cppzmq
           git checkout v4.9.0
-          cp zmq.hpp $HOME/zeromq/include/
-          echo "ZMQ_INCLUDE_DIR=$HOME/zeromq/include" >> $GITHUB_ENV
+          sudo cp zmq.hpp /usr/local/include/
+          echo "ZMQ_INCLUDE_DIR=/usr/local/include" >> $GITHUB_ENV
+          echo "ZMQ_LIBRARY=/usr/local/lib/libzmq.a" >> $GITHUB_ENV
 
       - name: Install Boost 1.75 (static) with Clang
         run: |
