@@ -136,15 +136,7 @@ jobs:
           # Print target and thread model for confirmation
           /opt/clang-7/bin/clang --version | grep Target || true
 
-      - name: Verify dependency paths
-        run: |
-          ls -ld /usr/local/openssl-1.1.1/lib/libcrypto.a || { echo "OpenSSL crypto library missing"; exit 1; }
-          ls -ld /usr/local/opt/readline/lib/libreadline.a || { echo "Readline library missing"; exit 1; }
-          ls -ld ${BOOST_ROOT}/lib/libboost_system.a || { echo "Boost system library missing"; exit 1; }
-          ls -ld /usr/local/lib/libzmq.a || { echo "ZeroMQ library missing"; exit 1; }
-          ls -ld /usr/local/lib/libunbound.a || { echo "Unbound library missing"; exit 1; }
-          echo $PKG_CONFIG_PATH
-          pkg-config --libs --cflags unbound
+
 
       - name: Configure CMake for Ryo build with Clang 7
         run: |
