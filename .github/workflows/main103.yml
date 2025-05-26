@@ -63,16 +63,16 @@ jobs:
           sudo tar -xf sdk.tar.xz -C /Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/
           echo "SDK_PATH=/Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk" >> $GITHUB_ENV
 
-      - name: Build ZeroMQ 4.3.5 (static)
+      - name: Build and install ZeroMQ 4.3.5 (static)
         run: |
-          curl -L https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz -o zmq.tar.gz
-          tar -xzf zmq.tar.gz
+          curl -L https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz -o zeromq-4.3.5.tar.gz
+          tar -xzf zeromq-4.3.5.tar.gz
           cd zeromq-4.3.5
           sed -i '' '/#define CLOCK_REALTIME 0/d' src/clock.hpp || true
-          ./configure --prefix=/usr/local --enable-static --disable-shared \
-            CFLAGS="-mmacosx-version-min=10.15 -isysroot ${{ env.SDK_PATH }}" \
-            CXXFLAGS="-mmacosx-version-min=10.15 -isysroot ${{ env.SDK_PATH }}" \
-            LDFLAGS="-mmacosx-version-min=10.15 -isysroot ${{ env.SDK_PATH }}"
+          ./configure --prefix=/usr/local --enable-static --disable-shared --disable-tipc \
+            CC=clang CXX=clang++ \
+            CFLAGS="-Wno-error -Wno-error=packed-not-aligned" \
+            CXXFLAGS="-std=gnu++14 -Wno-error -Wno-error=packed-not-aligned"
           make -j$(sysctl -n hw.ncpu)
           sudo make install
 
