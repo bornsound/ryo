@@ -93,7 +93,7 @@ jobs:
             echo "CMAKE_PREFIX_PATH=/usr/local/opt/boost:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
           fi
 
-      - name: Set macOS deployment target to 10.15
+      - name: Set macOS deploymenttargets to 10.15
         run: echo "MACOSX_DEPLOYMENT_TARGET=10.15" >> $GITHUB_ENV
 
       - name: Install macOS 10.15 SDK
@@ -110,9 +110,8 @@ jobs:
           ls -ld clang+llvm-7.0.0-x86_64-apple-darwin || { echo "Extracted directory not found"; exit 1; }
           sudo mkdir -p /opt/clang-7
           sudo mv clang+llvm-7.0.0-x86_64-apple-darwin/* /opt/clang-7/ || { echo "Failed to move Clang 7 files"; exit 1; }
-          ls -l /opt/clang-7/bin/ || { echo "Clang 7 bin directory not found"; exit 1; }
-          ls -l /opt/clang-7/bin/clang || ls -l /opt/clang-7/bin/clang-7 || { echo "Clang 7 binary not found"; exit 1; }
-          ls -l /opt/clang-7/bin/clang++ || ls -l /opt/clang-7/bin/clang++-7 || { echo "Clang++ 7 binary not found"; exit 1; }
+          ls -l /opt/clang-7/bin/clang-7 || { echo "Clang 7 binary not found"; exit 1; }
+          ls -l /opt/clang-7/bin/clang++-7 || { echo "Clang++ 7 binary not found"; exit 1; }
           sudo chmod +x /opt/clang-7/bin/* || { echo "Failed to set executable permissions"; exit 1; }
           # Ensure consistent binary names
           sudo ln -sf /opt/clang-7/bin/clang-7 /opt/clang-7/bin/clang
@@ -120,6 +119,10 @@ jobs:
           echo "/opt/clang-7/bin" >> $GITHUB_PATH
           /opt/clang-7/bin/clang-7 --version || { echo "Clang 7 version check failed"; exit 1; }
           /opt/clang-7/bin/clang++-7 --version || { echo "Clang++ 7 version check failed"; exit 1; }
+          # Test Clang++ 7 with a simple C++ program
+          echo -e '#include <iostream>\nint main() { std::cout << "Hello\\n"; return 0; }' > test.cpp
+          /opt/clang-7/bin/clang++-7 -mmacosx-version-min=10.15 -isysroot /Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk -stdlib=libc++ test.cpp -o test || { echo "Clang++ 7 test compile failed"; exit 1; }
+          ./test || { echo "Clang++ 7 test execution failed"; exit 1; }
           /opt/clang-7/bin/clang-7 --version | grep Target || true
 
       - name: Configure CMake for Ryo build with Clang 7
@@ -161,7 +164,7 @@ jobs:
             -DARCH=x86-64 \
             -DCMAKE_POLICY_DEFAULT_CMP0057=NEW \
             -DBUILD_64=ON \
-            -DCMAKE_EXE_LINKER_FLAGS="-framework CoreFoundation -framework IOKit -ldispatch"
+            -DCMAKE_EXE_LINKER_FLAGS="-framework CoreFoundation -framework IOKit -ldispatch -lc++"
 
       - name: Build Ryo with Clang 7
         run: |
@@ -193,4 +196,4 @@ jobs:
           cat build/CMakeFiles/CMakeOutput.log || true
           cat build/CMakeFiles/CMakeError.log || true
           find build -name "CMake*.log" -exec cat {} \;
-          /opt/clang-7/bin/clang++-7 --version
+          /opt/clang-7/bin/clang++-7 --version || true
