@@ -65,6 +65,7 @@ jobs:
             CXXFLAGS="-std=gnu++14 -Wno-error -Wno-error=packed-not-aligned"
           make -j$(sysctl -n hw.ncpu)
           sudo make install
+
       - name: Install cppzmq
         run: |
           git clone https://github.com/zeromq/cppzmq.git
@@ -92,8 +93,9 @@ jobs:
             echo "CMAKE_PREFIX_PATH=/usr/local/opt/boost:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
           fi
 
-      - name: Set macOS deployment target to 12.0
+      - name: Set macOS deployment target to 10.15
         run: echo "MACOSX_DEPLOYMENT_TARGET=10.15" >> $GITHUB_ENV
+
       - name: Install macOS 10.15 SDK
         run: |
           curl -L -o sdk.tar.xz https://github.com/phracker/MacOSX-SDKs/releases/download/10.15/MacOSX10.15.sdk.tar.xz
@@ -102,77 +104,42 @@ jobs:
 
       - name: Install Clang 7
         run: |
-          # Download Clang 7 tarball
           curl -L https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz -o clang+llvm-7.0.0.tar.xz
-          
-          # Verify tarball download
           ls -l clang+llvm-7.0.0.tar.xz || { echo "Tarball download failed"; exit 1; }
-          
-          # Extract tarball
           tar -xJf clang+llvm-7.0.0.tar.xz
-          
-          # Verify extracted directory
           ls -ld clang+llvm-7.0.0-x86_64-apple-darwin || { echo "Extracted directory not found"; exit 1; }
-          
-          # Move to /opt/clang-7
           sudo mkdir -p /opt/clang-7
           sudo mv clang+llvm-7.0.0-x86_64-apple-darwin/* /opt/clang-7/ || { echo "Failed to move Clang 7 files"; exit 1; }
-          
-          # Verify binary existence and permissions
           ls -l /opt/clang-7/bin/ || { echo "Clang 7 bin directory not found"; exit 1; }
           ls -l /opt/clang-7/bin/clang || ls -l /opt/clang-7/bin/clang-7 || { echo "Clang 7 binary not found"; exit 1; }
           ls -l /opt/clang-7/bin/clang++ || ls -l /opt/clang-7/bin/clang++-7 || { echo "Clang++ 7 binary not found"; exit 1; }
-          
-          # Ensure binaries are executable
           sudo chmod +x /opt/clang-7/bin/* || { echo "Failed to set executable permissions"; exit 1; }
-          
-          # Add Clang 7 to PATH
+          # Ensure consistent binary names
+          sudo ln -sf /opt/clang-7/bin/clang-7 /opt/clang-7/bin/clang
+          sudo ln -sf /opt/clang-7/bin/clang++-7 /opt/clang-7/bin/clang++
           echo "/opt/clang-7/bin" >> $GITHUB_PATH
-          
-          # Verify Clang 7 installation
-          /opt/clang-7/bin/clang --version || /opt/clang-7/bin/clang-7 --version || { echo "Clang 7 version check failed"; exit 1; }
-          /opt/clang-7/bin/clang++ --version || /opt/clang-7/bin/clang++-7 --version || { echo "Clang++ 7 version check failed"; exit 1; }
-          
-          # Print target and thread model for confirmation
-          /opt/clang-7/bin/clang --version | grep Target || true
-
-
+          /opt/clang-7/bin/clang-7 --version || { echo "Clang 7 version check failed"; exit 1; }
+          /opt/clang-7/bin/clang++-7 --version || { echo "Clang++ 7 version check failed"; exit 1; }
+          /opt/clang-7/bin/clang-7 --version | grep Target || true
 
       - name: Configure CMake for Ryo build with Clang 7
         run: |
           mkdir -p build
           cd build
-          
-          # Set SDK path explicitly to the 10.15 SDK you downloaded earlier
-          export SDK_PATH="/Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk"
-          
-          # Detect actual compiler binary names
-          if [ -x /opt/clang-7/bin/clang-7 ]; then
-            export CC="/opt/clang-7/bin/clang-7"
-          else
-            echo "Clang 7 not found"; exit 1
-          fi
-
-          if [ -x /opt/clang-7/bin/clang++-7 ]; then
-            export CXX="/opt/clang-7/bin/clang++-7"
-          elif [ -x /opt/clang-7/bin/clang++ ]; then
-            export CXX="/opt/clang-7/bin/clang++"
-          else
-            echo "Clang++ 7 not found"; exit 1
-          fi
-
-          # Compiler flags with sysroot
-          export CFLAGS="-mmacosx-version-min=10.15 --sysroot=$SDK_PATH -isysroot $SDK_PATH -march=x86-64"
-          export CXXFLAGS="-mmacosx-version-min=10.15 --sysroot=$SDK_PATH -isysroot $SDK_PATH -march=x86-64 -std=c++14"
-
+          SDK_PATH="/Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk"
+          export CC="/opt/clang-7/bin/clang-7"
+          export CXX="/opt/clang-7/bin/clang++-7"
+          export CFLAGS="-mmacosx-version-min=10.15 -isysroot $SDK_PATH -march=x86-64"
+          export CXXFLAGS="-mmacosx-version-min=10.15 -isysroot $SDK_PATH -march=x86-64 -std=c++14 -stdlib=libc++"
           /usr/local/bin/cmake .. \
+            --verbose \
             -DCMAKE_C_COMPILER="$CC" \
             -DCMAKE_CXX_COMPILER="$CXX" \
             -DCMAKE_C_STANDARD=11 \
             -DCMAKE_CXX_STANDARD=14 \
             -DCMAKE_CXX_EXTENSIONS=ON \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 \
-            -DCMAKE_OSX_SYSROOT="$SDK_PATH" \
+            -CMAKE_OSX_SYSROOT="$SDK_PATH" \
             -DUNBOUND_INCLUDE_DIR=/usr/local/include \
             -DUNBOUND_LIBRARY=/usr/local/lib/libunbound.a \
             -DZMQ_INCLUDE_DIR=${ZMQ_INCLUDE_DIR} \
@@ -196,12 +163,10 @@ jobs:
             -DBUILD_64=ON \
             -DCMAKE_EXE_LINKER_FLAGS="-framework CoreFoundation -framework IOKit -ldispatch"
 
-
       - name: Build Ryo with Clang 7
         run: |
           cd build
           make -j$(sysctl -n hw.ncpu)
-          # Verify Clang 7 was used (check for libclang or no libstdc++ from GCC)
           otool -L build/release/bin/* | grep -v libstdc++
 
       - name: Run tests (optional)
