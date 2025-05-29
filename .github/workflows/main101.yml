@@ -93,7 +93,7 @@ jobs:
             echo "CMAKE_PREFIX_PATH=/usr/local/opt/boost:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
           fi
 
-      - name: Set macOS deploymenttargets to 10.15
+      - name: Set macOS deployment targets to 10.15
         run: echo "MACOSX_DEPLOYMENT_TARGET=10.15" >> $GITHUB_ENV
 
       - name: Install macOS 10.15 SDK
@@ -105,25 +105,20 @@ jobs:
       - name: Install Clang 7
         run: |
           curl -L https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz -o clang+llvm-7.0.0.tar.xz
-          ls -l clang+llvm-7.0.0.tar.xz || { echo "Tarball download failed"; exit 1; }
           tar -xJf clang+llvm-7.0.0.tar.xz
-          ls -ld clang+llvm-7.0.0-x86_64-apple-darwin || { echo "Extracted directory not found"; exit 1; }
           sudo mkdir -p /opt/clang-7
-          sudo mv clang+llvm-7.0.0-x86_64-apple-darwin/* /opt/clang-7/ || { echo "Failed to move Clang 7 files"; exit 1; }
-          ls -l /opt/clang-7/bin/clang-7 || { echo "Clang 7 binary not found"; exit 1; }
-          ls -l /opt/clang-7/bin/clang++-7 || { echo "Clang++ 7 binary not found"; exit 1; }
-          sudo chmod +x /opt/clang-7/bin/* || { echo "Failed to set executable permissions"; exit 1; }
-          # Ensure consistent binary names
+          sudo mv clang+llvm-7.0.0-x86_64-apple-darwin/* /opt/clang-7/
+          ls -l /opt/clang-7/bin/ || exit 1
+          [ -f /opt/clang-7/bin/clang++-7 ] || { echo "clang++-7 missing"; ls -l /opt/clang-7/bin/clang++*; exit 1; }
+          sudo chmod +x /opt/clang-7/bin/*
           sudo ln -sf /opt/clang-7/bin/clang-7 /opt/clang-7/bin/clang
           sudo ln -sf /opt/clang-7/bin/clang++-7 /opt/clang-7/bin/clang++
           echo "/opt/clang-7/bin" >> $GITHUB_PATH
-          /opt/clang-7/bin/clang-7 --version || { echo "Clang 7 version check failed"; exit 1; }
-          /opt/clang-7/bin/clang++-7 --version || { echo "Clang++ 7 version check failed"; exit 1; }
-          # Test Clang++ 7 with a simple C++ program
+          /opt/clang-7/bin/clang-7 --version
+          /opt/clang-7/bin/clang++-7 --version
           echo -e '#include <iostream>\nint main() { std::cout << "Hello\\n"; return 0; }' > test.cpp
-          /opt/clang-7/bin/clang++-7 -mmacosx-version-min=10.15 -isysroot /Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk -stdlib=libc++ test.cpp -o test || { echo "Clang++ 7 test compile failed"; exit 1; }
-          ./test || { echo "Clang++ 7 test execution failed"; exit 1; }
-          /opt/clang-7/bin/clang-7 --version | grep Target || true
+          /opt/clang-7/bin/clang++-7 -mmacosx-version-min=10.15 -isysroot /Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk -stdlib=libc++ test.cpp -o test
+          ./test
 
       - name: Configure CMake for Ryo build with Clang 7
         run: |
