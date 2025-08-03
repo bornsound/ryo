@@ -1,4 +1,4 @@
-name: Build RRRyo Currency with GCC 7
+name: Build RyTo Currency with GCC 7
 
 on:
   push:
@@ -18,10 +18,14 @@ jobs:
           ref: dev1
           submodules: recursive
 
+      - name: Enable universe repository and update package cache
+        run: |
+          sudo add-apt-repository universe
+          sudo apt-get update
+
       - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libunbound-dev libsodium-dev libminiupnpc-dev libhidapi-dev libxz-dev libreadline-dev libexpat1-dev libunwind-dev libpgm-dev doxygen graphviz libblake3-dev libfmt-dev libhiredis-dev libxxhash-dev ccache
+          sudo apt-get install -y build-essential pkg-config libunbound-dev libsodium-dev libminiupnpc-dev libhidapi-dev liblzma-dev libreadline-dev libexpat1-dev libunwind-dev libpgm-dev doxygen graphviz libfmt-dev libhiredis-dev libxxhash-dev ccache
 
       - name: Install GCC 7
         run: |
