@@ -1,0 +1,169 @@
+name: Build RRRyo Currency with GCC 7
+
+on:
+  push:
+    branches: [ dev1 ]
+  pull_request:
+    branches: [ dev1 ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: dev1
+          submodules: recursive
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libunbound-dev libsodium-dev libminiupnpc-dev libhidapi-dev libxz-dev libreadline-dev libexpat1-dev libunwind-dev libpgm-dev doxygen graphviz libblake3-dev libfmt-dev libhiredis-dev libxxhash-dev ccache
+
+      - name: Install GCC 7
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-7 g++-7
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 70
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-7 70
+          gcc-7 --version
+          g++-7 --version
+          echo -e '#include <iostream>\nint main() { std::cout << "Hello\\n"; return 0; }' > test.cpp
+          g++-7 -std=c++14 test.cpp -o test
+          ./test
+          echo "CC=/usr/bin/gcc-7" >> $GITHUB_ENV
+          echo "CXX=/usr/bin/g++-7" >> $GITHUB_ENV
+
+      - name: Install OpenSSL 1.1.1 with GCC
+        run: |
+          curl -L https://www.openssl.org/source/openssl-1.1.1w.tar.gz -o openssl-1.1.1w.tar.gz
+          tar -xzf openssl-1.1.1w.tar.gz
+          cd openssl-1.1.1w
+          ./config --prefix=/usr/local/openssl-1.1.1 --openssldir=/usr/local/openssl-1.1.1 no-shared
+          make -j$(nproc) CC=gcc-7 CXX=g++-7
+          sudo make install
+          echo "OPENSSL_ROOT_DIR=/usr/local/openssl-1.1.1" >> $GITHUB_ENV
+          echo "CMAKE_PREFIX_PATH=/usr/local/openssl-1.1.1:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
+
+      - name: Install CMake 3.31.6 with GCC
+        run: |
+          sudo apt-get remove --purge cmake -y || true
+          curl -L https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6.tar.gz -o cmake-3.31.6.tar.gz
+          tar -xzf cmake-3.31.6.tar.gz
+          cd cmake-3.31.6
+          ./bootstrap -- -DCMAKE_C_COMPILER=gcc-7 -DCMAKE_CXX_COMPILER=g++-7
+          make -j$(nproc) CC=gcc-7 CXX=g++-7
+          sudo make install
+          /usr/local/bin/cmake --version
+
+      - name: Build and install ZeroMQ 4.3.5 (static)
+        run: |
+          curl -L https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz -o zeromq-4.3.5.tar.gz
+          tar -xzf zeromq-4.3.5.tar.gz
+          cd zeromq-4.3.5
+          ./configure --prefix=/usr/local --enable-static --disable-shared --disable-tipc \
+            CC=gcc-7 CXX=g++-7 \
+            CFLAGS="-Wno-error" \
+            CXXFLAGS="-std=gnu++14 -Wno-error"
+          make -j$(nproc)
+          sudo make install
+
+      - name: Install cppzmq
+        run: |
+          git clone https://github.com/zeromq/cppzmq.git
+          cd cppzmq
+          git checkout v4.9.0
+          sudo cp zmq.hpp /usr/local/include/
+          echo "ZMQ_INCLUDE_DIR=/usr/local/include" >> $GITHUB_ENV
+          echo "ZMQ_LIBRARY=/usr/local/lib/libzmq.a" >> $GITHUB_ENV
+
+      - name: Install Boost 1.75 (static) with GCC
+        run: |
+          curl -L https://archives.boost.io/release/1.75.0/source/boost_1_75_0.tar.gz -o boost_1_75_0.tar.gz
+          tar -xzf boost_1_75_0.tar.gz
+          cd boost_1_75_0
+          ./bootstrap.sh --prefix=$HOME/boost-1.75 --with-toolset=gcc
+          ./b2 -j$(nproc) --without-python link=static runtime-link=static toolset=gcc cxxflags="-std=c++14" install
+          echo "BOOST_ROOT=$HOME/boost-1.75" >> $GITHUB_ENV
+          echo "CMAKE_PREFIX_PATH=$HOME/boost-1.75:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
+
+      - name: Fallback to system Boost
+        run: |
+          if [ ! -f "$HOME/boost-1.75/lib/libboost_system.a" ]; then
+            sudo apt-get install -y libboost-all-dev
+            echo "BOOST_ROOT=/usr" >> $GITHUB_ENV
+            echo "CMAKE_PREFIX_PATH=/usr:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
+          fi
+
+      - name: Configure CMake for Ryo build with GCC 7
+        run: |
+          mkdir -p build
+          cd build
+          export CC=/usr/bin/gcc-7
+          export CXX=/usr/bin/g++-7
+          export CFLAGS="-march=x86-64"
+          export CXXFLAGS="-march=x86-64 -std=c++14"
+          /usr/local/bin/cmake .. \
+            --verbose \
+            -DCMAKE_C_COMPILER="$CC" \
+            -DCMAKE_CXX_COMPILER="$CXX" \
+            -DCMAKE_C_STANDARD=11 \
+            -DCMAKE_CXX_STANDARD=14 \
+            -DCMAKE_CXX_EXTENSIONS=ON \
+            -DUNBOUND_INCLUDE_DIR=/usr/include \
+            -DUNBOUND_LIBRARY=/usr/lib/x86_64-linux-gnu/libunbound.a \
+            -DZMQ_INCLUDE_DIR=${ZMQ_INCLUDE_DIR} \
+            -DZMQ_LIBRARY=${ZMQ_LIBRARY} \
+            -DREADLINE_ROOT=/usr \
+            -DReadline_INCLUDE_DIR=/usr/include/readline \
+            -DReadline_LIBRARY=/usr/lib/x86_64-linux-gnu/libreadline.a \
+            -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} \
+            -DOPENSSL_INCLUDE_DIR=/usr/local/openssl-1.1.1/include \
+            -DOPENSSL_CRYPTO_LIBRARY=/usr/local/openssl-1.1.1/lib/libcrypto.a \
+            -DOPENSSL_SSL_LIBRARY=/usr/local/openssl-1.1.1/lib/libssl.a \
+            -DBOOST_ROOT=${BOOST_ROOT} \
+            -DCMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH}" \
+            -DBoost_USE_STATIC_LIBS=ON \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSTATIC=ON \
+            -DBoost_USE_STATIC_RUNTIME=ON \
+            -DUSE_SINGLE_BUILDDIR=1 \
+            -DARCH=x86-64 \
+            -DCMAKE_POLICY_DEFAULT_CMP0057=NEW \
+            -DBUILD_64=ON \
+            -DCMAKE_EXE_LINKER_FLAGS="-ldl -lpthread"
+
+      - name: Build Ryo with GCC 7
+        run: |
+          cd build
+          make -j$(nproc)
+          ldd build/release/bin/* | grep -v libstdc++
+
+      - name: Run tests (optional)
+        run: |
+          cd build
+          make release-test
+        continue-on-error: true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ryo-binaries
+          path: build/release/bin/
+
+      - name: Clean up temporary files
+        if: always()
+        run: |
+          rm -rf *.tar.gz *.tar.xz
+          rm -rf boost_1_75_0 cmake-3.31.6 openssl-1.1.1w cppzmq
+
+      - name: Print CMake logs and compiler info on failure
+        if: failure()
+        run: |
+          cat build/CMakeFiles/CMakeOutput.log || true
+          cat build/CMakeFiles/CMakeError.log || true
+          find build -name "CMake*.log" -exec cat {} \;
+          g++-7 --version || true
