@@ -109,10 +109,10 @@ jobs:
           sudo mkdir -p /opt/clang-7
           sudo mv clang+llvm-7.0.0-x86_64-apple-darwin/* /opt/clang-7/
           ls -l /opt/clang-7/bin/ || exit 1
-          [ -f /opt/clang-7/bin/clang++-7 ] || { echo "clang++-7 missing"; ls -l /opt/clang-7/bin/clang++*; exit 1; }
+          [ -f /opt/clang-7/bin/clang++ ] || { echo "clang++ missing"; ls -l /opt/clang-7/bin/; exit 1; }
+          sudo ln -sf /opt/clang-7/bin/clang /opt/clang-7/bin/clang-7
+          sudo ln -sf /opt/clang-7/bin/clang++ /opt/clang-7/bin/clang++-7
           sudo chmod +x /opt/clang-7/bin/*
-          sudo ln -sf /opt/clang-7/bin/clang-7 /opt/clang-7/bin/clang
-          sudo ln -sf /opt/clang-7/bin/clang++-7 /opt/clang-7/bin/clang++
           echo "/opt/clang-7/bin" >> $GITHUB_PATH
           /opt/clang-7/bin/clang-7 --version
           /opt/clang-7/bin/clang++-7 --version
