@@ -104,30 +104,34 @@ jobs:
 
       - name: Install Clang 7
         run: |
-          curl -L https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz -o clang+llvm-7.0.0.tar.xz
-          tar -xJf clang+llvm-7.0.0.tar.xz
-          sudo mkdir -p /opt/clang-7
-          sudo mv clang+llvm-7.0.0-x86_64-apple-darwin/* /opt/clang-7/
-          ls -l /opt/clang-7/bin/ || exit 1
-          [ -f /opt/clang-7/bin/clang++ ] || { echo "clang++ missing"; ls -l /opt/clang-7/bin/; exit 1; }
-          sudo ln -sf /opt/clang-7/bin/clang /opt/clang-7/bin/clang-7
-          sudo ln -sf /opt/clang-7/bin/clang++ /opt/clang-7/bin/clang++-7
-          sudo chmod +x /opt/clang-7/bin/*
-          echo "/opt/clang-7/bin" >> $GITHUB_PATH
-          /opt/clang-7/bin/clang-7 --version
-          /opt/clang-7/bin/clang++-7 --version
-          echo -e '#include <iostream>\nint main() { std::cout << "Hello\\n"; return 0; }' > test.cpp
-          /opt/clang-7/bin/clang++-7 -mmacosx-version-min=10.15 -isysroot /Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk -stdlib=libc++ test.cpp -o test
-          ./test
+          set -e
+          if brew install llvm@7; then
+            echo "Using Homebrew llvm@7"
+            echo "/usr/local/opt/llvm@7/bin" >> $GITHUB_PATH
+            ln -sf /usr/local/opt/llvm@7/bin/clang /usr/local/opt/llvm@7/bin/clang-7
+            ln -sf /usr/local/opt/llvm@7/bin/clang++ /usr/local/opt/llvm@7/bin/clang++-7
+            clang-7 --version
+            clang++-7 --version
+          else
+            echo "Building Clang 7 from source (this will take a while)"
+            git clone --depth 1 -b release/7.x https://github.com/llvm/llvm-project.git
+            mkdir llvm-project/build && cd llvm-project/build
+            cmake -G "Unix Makefiles" -DLLVM_ENABLE_PROJECTS=clang -DCMAKE_BUILD_TYPE=Release ../llvm
+            make -j$(sysctl -n hw.ncpu)
+            sudo make install
+            echo "/usr/local/bin" >> $GITHUB_PATH
+            clang-7 --version
+            clang++-7 --version
+          fi
 
       - name: Configure CMake for Ryo build with Clang 7
         run: |
           mkdir -p build
           cd build
           SDK_PATH="/Applications/Xcode_14.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk"
-          export CC="/opt/clang-7/bin/clang-7"
-          export CXX="/opt/clang-7/bin/clang++-7"
-          export PATH="/opt/clang-7/bin:$PATH"
+          export CC="clang-7"
+          export CXX="clang++-7"
+          export PATH="/usr/local/opt/llvm@7/bin:$PATH"
           export CFLAGS="-mmacosx-version-min=10.15 -isysroot $SDK_PATH -march=x86-64"
           export CXXFLAGS="-mmacosx-version-min=10.15 -isysroot $SDK_PATH -march=x86-64 -std=c++14 -stdlib=libc++"
           /usr/local/bin/cmake .. \
@@ -184,7 +188,7 @@ jobs:
         if: always()
         run: |
           rm -rf *.tar.gz *.tar.xz
-          rm -rf boost_1_75_0 cmake-3.31.6 openssl-1.1.1w cppzmq clang+llvm-7.0.0-x86_64-apple-darwin
+          rm -rf boost_1_75_0 cmake-3.31.6 openssl-1.1.1w cppzmq llvm-project
 
       - name: Print CMake logs and compiler info on failure
         if: failure()
@@ -192,4 +196,4 @@ jobs:
           cat build/CMakeFiles/CMakeOutput.log || true
           cat build/CMakeFiles/CMakeError.log || true
           find build -name "CMake*.log" -exec cat {} \;
-          /opt/clang-7/bin/clang++-7 --version || true
+          clang++-7 --version || true
